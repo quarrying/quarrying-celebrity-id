@@ -35,7 +35,7 @@ def draw_landmarks(image, landmarks):
     
     
 if __name__ == '__main__':
-    minsize = 20
+    min_size = 20
     threshold = [0.6, 0.7, 0.7]
     factor = 0.709
     mtcnn = MTCNN()
@@ -50,7 +50,7 @@ if __name__ == '__main__':
         img_matlab[:,:,0] = tmp
         
         start_time = time.time()
-        boundingboxes, points = mtcnn.detect(img_matlab, minsize, threshold, factor)
+        boundingboxes, points = mtcnn.detect(img_matlab, min_size, threshold, factor)
         print(time.time() - start_time)
         
         img = draw_rectangles(img, boundingboxes)

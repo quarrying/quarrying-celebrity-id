@@ -136,16 +136,15 @@ class MTCNN(object):
         self.pnet = cv2.dnn.readNetFromCaffe('models/det1.prototxt', 'models/det1.caffemodel')
         self.rnet = cv2.dnn.readNetFromCaffe('models/det2.prototxt', 'models/det2.caffemodel')
         self.onet = cv2.dnn.readNetFromCaffe('models/det3.prototxt', 'models/det3.caffemodel')
-        self.pnet_input_size = 12
-        self.rnet_input_size = 24
-        self.onet_input_size = 48
         self.pnet_nms_thresh_intra = 0.5
         self.pnet_nms_thresh_inter = 0.7
-        
+        self.rnet_nms_thresh = 0.7
+        self.onet_nms_thresh = 0.7
+
     @staticmethod
-    def _get_scale_factors(min_side_length, factor, minsize):
+    def _get_scale_factors(min_side_length, factor, min_size):
         factor_count = 0
-        m = 12.0 / minsize
+        m = 12.0 / min_size
         min_side_length = min_side_length * m
         scale_factors = []
         while min_side_length >= 12:
@@ -214,10 +213,10 @@ class MTCNN(object):
             outputs[k,:,:,:] = cv2.resize(tmp, (dst_size, dst_size))
         return outputs
 
-    def _run_first_stage(self, img, minsize, conf_threshold, factor):
+    def _run_first_stage(self, img, min_size, conf_threshold, factor):
         h, w = img.shape[:2]
         total_boxes = np.zeros((0, 9), np.float32)
-        scale_factors = self._get_scale_factors(min(h, w), factor, minsize)
+        scale_factors = self._get_scale_factors(min(h, w), factor, min_size)
         for scale_factor in scale_factors:
             hs = int(np.ceil(h * scale_factor))
             ws = int(np.ceil(w * scale_factor))
@@ -244,15 +243,14 @@ class MTCNN(object):
             total_boxes = self._decode_boxes(total_boxes[:,5:], total_boxes[:,:4])
             total_boxes = np.concatenate((total_boxes, score), axis=1)
             total_boxes = inflate_boxes_to_square(total_boxes)
-            total_boxes[:, :4] = np.fix(total_boxes[:, :4])
         return total_boxes
 
-    def detect(self, img, minsize, conf_thresholds, factor):
+    def detect(self, img, min_size, conf_thresholds, factor):
         img = normalize_image_shape(img)
 
         # First stage
         points = np.empty((0, 10), np.float32)
-        total_boxes = self._run_first_stage(img, minsize, conf_thresholds[0], factor)
+        total_boxes = self._run_first_stage(img, min_size, conf_thresholds[0], factor)
         if total_boxes.shape[0] == 0:
             return total_boxes, points
 
@@ -267,7 +265,7 @@ class MTCNN(object):
         total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
         mv = out_conv5_2[pass_t, :]
         if total_boxes.shape[0] > 0:
-            pick = nms(total_boxes, 0.7, 'Union')
+            pick = nms(total_boxes, self.rnet_nms_thresh, 'Union')
             if len(pick) > 0 :
                 total_boxes = self._decode_boxes(mv[pick, :], total_boxes[pick, :])
                 total_boxes = inflate_boxes_to_square(total_boxes)
@@ -287,7 +285,7 @@ class MTCNN(object):
         mv = out_conv6_2[pass_t, :]
         if total_boxes.shape[0] > 0:
             total_boxes = self._decode_boxes(mv, total_boxes)
-            pick = nms(total_boxes, 0.7, 'Min')
+            pick = nms(total_boxes, self.onet_nms_thresh, 'Min')
             if len(pick) > 0 :
                 total_boxes = total_boxes[pick, :]
                 points = points[pick, :]
