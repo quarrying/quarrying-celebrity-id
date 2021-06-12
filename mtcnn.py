@@ -28,12 +28,6 @@ def normalize_image_shape(image):
 def inflate_boxes_to_square(boxes, copy=True):
     """Inflate boxes to square
     
-    Args:
-        boxes: (N, 4+K)
-        width_delta: array-like whose shape is (), (1,), (N,), (1, 1) or (N, 1)
-        height_delta: array-like whose shape is (), (1,), (N,), (1, 1) or (N, 1)
-        copy: bool
-        
     References:
         `rerec` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
     """
@@ -53,54 +47,28 @@ def inflate_boxes_to_square(boxes, copy=True):
     boxes[:, 3] += height_deltas
     return boxes
     
+
+def crop_or_pad_coords(boxes, image_width, image_height):
+    x_mins = boxes[:, 0]
+    y_mins = boxes[:, 1]
+    x_maxs = boxes[:, 2]
+    y_maxs = boxes[:, 3]
+    dst_widths = x_maxs - x_mins + 1
+    dst_heights = y_maxs - y_mins + 1
+
+    src_x_begin = np.maximum(x_mins, 0)
+    src_y_begin = np.maximum(y_mins, 0)
+    src_x_end = np.minimum(x_maxs + 1, image_width)
+    src_y_end = np.minimum(y_maxs + 1, image_height)
     
-def pad(boxesA, w, h):
-    boxes = boxesA.copy()
-    tmph = boxes[:,3] - boxes[:,1] + 1
-    tmpw = boxes[:,2] - boxes[:,0] + 1
-    numbox = boxes.shape[0]
+    dst_x_begin = np.maximum(-x_mins, 0)
+    dst_y_begin = np.maximum(-y_mins, 0)
+    dst_x_end = np.minimum(dst_widths, image_width - x_mins)
+    dst_y_end = np.minimum(dst_heights, image_height - y_mins)
 
-    dx = np.ones(numbox)
-    dy = np.ones(numbox)
-    edx = tmpw 
-    edy = tmph
-
-    x = boxes[:,0:1][:,0]
-    y = boxes[:,1:2][:,0]
-    ex = boxes[:,2:3][:,0]
-    ey = boxes[:,3:4][:,0]
-   
-    tmp = np.where(ex > w)[0]
-    if tmp.shape[0] != 0:
-        edx[tmp] = -ex[tmp] + w-1 + tmpw[tmp]
-        ex[tmp] = w-1
-
-    tmp = np.where(ey > h)[0]
-    if tmp.shape[0] != 0:
-        edy[tmp] = -ey[tmp] + h-1 + tmph[tmp]
-        ey[tmp] = h-1
-
-    tmp = np.where(x < 1)[0]
-    if tmp.shape[0] != 0:
-        dx[tmp] = 2 - x[tmp]
-        x[tmp] = np.ones_like(x[tmp])
-
-    tmp = np.where(y < 1)[0]
-    if tmp.shape[0] != 0:
-        dy[tmp] = 2 - y[tmp]
-        y[tmp] = np.ones_like(y[tmp])
-    
-    # for python index from 0, while matlab from 1
-    dy = np.maximum(0, dy-1)
-    dx = np.maximum(0, dx-1)
-    y = np.maximum(0, y-1)
-    x = np.maximum(0, x-1)
-    edy = np.maximum(0, edy-1)
-    edx = np.maximum(0, edx-1)
-    ey = np.maximum(0, ey-1)
-    ex = np.maximum(0, ex-1)
-
-    return [dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph]
+    return [dst_y_begin, dst_y_end, dst_x_begin, dst_x_end, 
+            src_y_begin, src_y_end, src_x_begin, src_x_end, 
+            dst_widths, dst_heights]
     
     
 def nms(boxes, threshold, type):
@@ -162,6 +130,7 @@ class MTCNN(object):
     
     @staticmethod
     def _preprocess(images):
+        images = images.astype(np.float32)
         images -= 127.5
         images *= 0.0078125
         images = np.swapaxes(images, 1, 3)
@@ -210,13 +179,12 @@ class MTCNN(object):
     @staticmethod
     def _crop_and_resize(image, dst_size, boxes):
         image_height, image_width = image.shape[:2]
-        boxes = np.fix(boxes[:, :4])
-        num_boxes = boxes.shape[0]
-        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(boxes, image_width, image_height)
-        outputs = np.zeros((num_boxes, dst_size, dst_size, 3))
-        for k in range(num_boxes):
-            tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
-            tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = image[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
+        boxes = np.fix(boxes[:, :4]).astype(np.int32)
+        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = crop_or_pad_coords(boxes, image_width, image_height)
+        outputs = np.empty((boxes.shape[0], dst_size, dst_size, 3), dtype=image.dtype)
+        for k in range(boxes.shape[0]):
+            tmp = np.zeros((tmph[k], tmpw[k], 3), dtype=image.dtype)
+            tmp[dy[k]:edy[k], dx[k]:edx[k]] = image[y[k]:ey[k], x[k]:ex[k]]
             outputs[k, :, :, :] = cv2.resize(tmp, (dst_size, dst_size))
         return outputs
 
@@ -228,7 +196,6 @@ class MTCNN(object):
             dst_width = int(np.ceil(image_width * scale_factor))
             dst_height = int(np.ceil(image_height * scale_factor))
             pnet_input = cv2.resize(image, (dst_width, dst_height))
-            pnet_input = pnet_input.astype(np.float32)
             pnet_input = np.expand_dims(pnet_input, axis=0)
             pnet_input = self._preprocess(pnet_input)
 

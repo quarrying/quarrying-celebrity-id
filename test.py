@@ -50,10 +50,10 @@ if __name__ == '__main__':
         img_matlab[:,:,0] = tmp
         
         start_time = time.time()
-        boundingboxes, points = mtcnn.detect(img_matlab, min_size, threshold, factor)
+        boxes, points = mtcnn.detect(img_matlab, min_size, threshold, factor)
         print(time.time() - start_time)
-        
-        img = draw_rectangles(img, boundingboxes)
+        print('num_faces: ', len(boxes))
+        img = draw_rectangles(img, boxes)
         img = draw_landmarks(img, points)
         cv2.imshow('img', img)
         key = cv2.waitKey(0)
