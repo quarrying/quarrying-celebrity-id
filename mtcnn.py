@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 
@@ -132,10 +133,15 @@ def nms(boxes, threshold, type):
     
     
 class MTCNN(object):
-    def __init__(self):
-        self.pnet = cv2.dnn.readNetFromCaffe('models/det1.prototxt', 'models/det1.caffemodel')
-        self.rnet = cv2.dnn.readNetFromCaffe('models/det2.prototxt', 'models/det2.caffemodel')
-        self.onet = cv2.dnn.readNetFromCaffe('models/det3.prototxt', 'models/det3.caffemodel')
+    def __init__(self, model_dir=None):
+        if model_dir is None:
+            model_dir = os.path.join(os.path.dirname(__file__), 'models')
+        self.pnet = cv2.dnn.readNetFromCaffe(os.path.join(model_dir, 'det1.prototxt'), 
+                                             os.path.join(model_dir, 'det1.caffemodel'))
+        self.rnet = cv2.dnn.readNetFromCaffe(os.path.join(model_dir, 'det2.prototxt'), 
+                                             os.path.join(model_dir, 'det2.caffemodel'))
+        self.onet = cv2.dnn.readNetFromCaffe(os.path.join(model_dir, 'det3.prototxt'), 
+                                             os.path.join(model_dir, 'det3.caffemodel'))
         self.pnet_nms_thresh_intra = 0.5
         self.pnet_nms_thresh_inter = 0.7
         self.rnet_nms_thresh = 0.7
@@ -144,10 +150,11 @@ class MTCNN(object):
     @staticmethod
     def _get_scale_factors(min_side_length, factor, min_size):
         factor_count = 0
-        m = 12.0 / min_size
-        min_side_length = min_side_length * m
+        min_detection_size = 12
+        m = min_detection_size / min_size
+        min_side_length *= m
         scale_factors = []
-        while min_side_length >= 12:
+        while min_side_length >= min_detection_size:
             scale_factors.append(m * pow(factor, factor_count))
             min_side_length *= factor
             factor_count += 1
@@ -187,16 +194,16 @@ class MTCNN(object):
     @staticmethod
     def _generate_boxes(cls_probs, loc_preds, scale_factor, conf_threshold):
         stride = 2
-        cellsize = 12
+        cell_size = 12
         y, x = np.where(cls_probs >= conf_threshold)
-        loc_offsets = np.array([loc_preds[0, :, :][y, x], 
-                                loc_preds[1, :, :][y, x], 
-                                loc_preds[2, :, :][y, x], 
-                                loc_preds[3, :, :][y, x]])
-        xy_coords = np.array([y, x]) # N.B.
-        xy_mins = np.fix((stride * xy_coords + 1) / scale_factor)
-        xy_maxs = np.fix((stride * xy_coords + cellsize - 1 + 1) / scale_factor)
         scores = np.expand_dims(cls_probs[y, x], axis=0)
+        loc_offsets = np.array([loc_preds[0, y, x], 
+                                loc_preds[1, y, x], 
+                                loc_preds[2, y, x], 
+                                loc_preds[3, y, x]])
+        xy_coords = np.array([y, x]) # N.B.: not np.array([x, y])
+        xy_mins = np.fix((stride * xy_coords + 1) / scale_factor)
+        xy_maxs = np.fix((stride * xy_coords + cell_size - 1 + 1) / scale_factor)
         results = np.concatenate((xy_mins, xy_maxs, scores, loc_offsets), axis=0)
         return results.T
         
@@ -210,7 +217,7 @@ class MTCNN(object):
         for k in range(num_boxes):
             tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
             tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = image[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
-            outputs[k,:,:,:] = cv2.resize(tmp, (dst_size, dst_size))
+            outputs[k, :, :, :] = cv2.resize(tmp, (dst_size, dst_size))
         return outputs
 
     def _run_first_stage(self, image, min_size, conf_threshold, factor):
@@ -245,7 +252,7 @@ class MTCNN(object):
             total_boxes = inflate_boxes_to_square(total_boxes)
         return total_boxes
 
-    def detect(self, image, min_size, conf_thresholds, factor):
+    def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
         image = normalize_image_shape(image)
 
         # First stage
