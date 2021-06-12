@@ -103,12 +103,6 @@ def pad(boxesA, w, h):
     
     
 def nms(boxes, threshold, type):
-    """nms
-    :boxes: [:,0:5]
-    :threshold: 0.5 like
-    :type: 'Min' or others
-    :returns: TODO
-    """
     if boxes.shape[0] == 0:
         return np.array([])
     x1 = boxes[:,0]
@@ -116,8 +110,8 @@ def nms(boxes, threshold, type):
     x2 = boxes[:,2]
     y2 = boxes[:,3]
     s = boxes[:,4]
-    area = np.multiply(x2-x1+1, y2-y1+1)
-    I = np.array(s.argsort()) # read s using I
+    area = np.multiply(x2 - x1 + 1, y2 - y1 + 1)
+    I = np.array(s.argsort())
     
     pick = [];
     while len(I) > 0:
@@ -129,11 +123,11 @@ def nms(boxes, threshold, type):
         h = np.maximum(0.0, yy2 - yy1 + 1)
         inter = w * h
         if type == 'Min':
-            o = inter / np.minimum(area[I[-1]], area[I[0:-1]])
+            overlap_ratio = inter / np.minimum(area[I[-1]], area[I[0:-1]])
         else:
-            o = inter / (area[I[-1]] + area[I[0:-1]] - inter)
+            overlap_ratio = inter / (area[I[-1]] + area[I[0:-1]] - inter)
         pick.append(I[-1])
-        I = I[np.where( o <= threshold)[0]]
+        I = I[np.where(overlap_ratio <= threshold)[0]]
     return pick
     
     
@@ -179,7 +173,16 @@ class MTCNN(object):
         boxes[:, :4] += reference_boxes[:, :4]
         boxes = np.concatenate([boxes, reference_boxes[:,4:]], axis=1)
         return boxes
-        
+
+    @staticmethod
+    def _decode_points(points, reference_boxes, copy=True):
+        points = np.array(points, dtype=np.float32, copy=copy)
+        widths = np.expand_dims(reference_boxes[:, 3] - reference_boxes[:, 1] + 1, axis=1)
+        heights = np.expand_dims(reference_boxes[:, 2] - reference_boxes[:, 0] + 1, axis=1)
+        points[:, 0:5] = widths * points[:, 0:5] + np.expand_dims(reference_boxes[:, 0], axis=1) - 1 
+        points[:, 5:10] = heights * points[:, 5:10] + np.expand_dims(reference_boxes[:, 1], axis=1) - 1
+        return points
+
     @staticmethod
     def _generate_boxes(cls_probs, loc_preds, scale_factor, conf_threshold):
         stride = 2
@@ -196,7 +199,7 @@ class MTCNN(object):
         results = np.concatenate((xy_mins, xy_maxs, score, loc_offsets), axis=0)
         return results.T
         
-    def _first_stage(self, img, minsize, conf_threshold, factor):
+    def _run_first_stage(self, img, minsize, conf_threshold, factor):
         h, w = img.shape[:2]
         total_boxes = np.zeros((0, 9), np.float32)
         scale_factors = self._get_scale_factors(min(h, w), factor, minsize)
@@ -210,7 +213,6 @@ class MTCNN(object):
 
             self.pnet.setInput(pnet_input)
             out_prob1, out_conv4_2 = self.pnet.forward(['prob1', 'conv4-2'])
-
             boxes = self._generate_boxes(out_prob1[0,1,:,:], out_conv4_2[0], 
                                          scale_factor, conf_threshold)
             if boxes.shape[0] != 0:
@@ -236,7 +238,7 @@ class MTCNN(object):
 
         # First stage
         points = np.empty((0, 10), np.float32)
-        total_boxes = self._first_stage(img, minsize, conf_thresholds[0], factor)
+        total_boxes = self._run_first_stage(img, minsize, conf_thresholds[0], factor)
         num_boxes = total_boxes.shape[0]
         if num_boxes == 0:
             return total_boxes, points
@@ -270,7 +272,6 @@ class MTCNN(object):
         # Third stage
         total_boxes = np.fix(total_boxes)
         dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes, w, h)
-        
         onet_input = np.zeros((num_boxes, 48, 48, 3))
         for k in range(num_boxes):
             tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
@@ -283,13 +284,9 @@ class MTCNN(object):
         
         score = np.expand_dims(out_prob1[:, 1], axis=1)
         pass_t = np.where(score > conf_thresholds[2])[0]
-        total_boxes = np.concatenate( (total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
-        w = total_boxes[:,3] - total_boxes[:,1] + 1
-        h = total_boxes[:,2] - total_boxes[:,0] + 1
-        points = out_conv6_3[pass_t, :]
-        points[:, 0:5] = np.tile(w, (5,1)).T * points[:, 0:5] + np.tile(total_boxes[:,0], (5,1)).T - 1 
-        points[:, 5:10] = np.tile(h, (5,1)).T * points[:, 5:10] + np.tile(total_boxes[:,1], (5,1)).T -1
-        
+        total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
+        points = self._decode_points(out_conv6_3[pass_t, :], total_boxes)
+
         mv = out_conv6_2[pass_t, :]
         if total_boxes.shape[0] > 0:
             total_boxes = self._decode_boxes(mv, total_boxes)
@@ -297,5 +294,6 @@ class MTCNN(object):
             if len(pick) > 0 :
                 total_boxes = total_boxes[pick, :]
                 points = points[pick, :]
+
         return total_boxes, points
 
