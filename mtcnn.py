@@ -26,8 +26,7 @@ def normalize_image_shape(image):
     
     
 def inflate_boxes_to_square(boxes, copy=True):
-    """Inflate boxes to square
-    
+    """
     References:
         `rerec` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
     """
@@ -49,6 +48,10 @@ def inflate_boxes_to_square(boxes, copy=True):
     
 
 def crop_or_pad_coords(boxes, image_width, image_height):
+    """
+    References:
+        `pad` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
+    """
     x_mins = boxes[:, 0]
     y_mins = boxes[:, 1]
     x_maxs = boxes[:, 2]
@@ -72,6 +75,10 @@ def crop_or_pad_coords(boxes, image_width, image_height):
     
     
 def nms(boxes, threshold, type):
+    """
+    References:
+        `nms` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
+    """
     if boxes.shape[0] == 0:
         return []
     x1 = boxes[:,0]
@@ -138,6 +145,10 @@ class MTCNN(object):
         
     @staticmethod
     def _decode_boxes(boxes, reference_boxes, copy=True):
+        """
+        References:
+            `bbreg` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
+        """
         boxes = np.array(boxes, dtype=np.float32, copy=copy)
         reference_widths = reference_boxes[:, 2] - reference_boxes[:, 0] + 1
         reference_heights = reference_boxes[:, 3] - reference_boxes[:, 1] + 1
@@ -162,6 +173,10 @@ class MTCNN(object):
 
     @staticmethod
     def _generate_boxes(cls_probs, loc_preds, scale_factor, conf_threshold):
+        """
+        References:
+            `generateBoundingBox` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
+        """
         stride = 2
         cell_size = 12
         y, x = np.where(cls_probs >= conf_threshold)
