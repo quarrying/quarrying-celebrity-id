@@ -196,8 +196,8 @@ class MTCNN(object):
         xy_coords = np.array([y, x]) # N.B.
         xy_mins = np.fix((stride * xy_coords + 1) / scale_factor)
         xy_maxs = np.fix((stride * xy_coords + cellsize - 1 + 1) / scale_factor)
-        score = np.expand_dims(cls_probs[y, x], axis=0)
-        results = np.concatenate((xy_mins, xy_maxs, score, loc_offsets), axis=0)
+        scores = np.expand_dims(cls_probs[y, x], axis=0)
+        results = np.concatenate((xy_mins, xy_maxs, scores, loc_offsets), axis=0)
         return results.T
         
     @staticmethod
@@ -239,9 +239,9 @@ class MTCNN(object):
         if total_boxes.shape[0] != 0:
             pick = nms(total_boxes, self.pnet_nms_thresh_inter, 'Union')
             total_boxes = total_boxes[pick, :]
-            score = np.expand_dims(total_boxes[:, 4], axis=1)
+            scores = np.expand_dims(total_boxes[:, 4], axis=1)
             total_boxes = self._decode_boxes(total_boxes[:,5:], total_boxes[:,:4])
-            total_boxes = np.concatenate((total_boxes, score), axis=1)
+            total_boxes = np.concatenate((total_boxes, scores), axis=1)
             total_boxes = inflate_boxes_to_square(total_boxes)
         return total_boxes
 
@@ -260,9 +260,9 @@ class MTCNN(object):
         self.rnet.setInput(rnet_input)
         out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
 
-        score = np.expand_dims(out_prob1[:, 1], axis=1)
-        pass_t = np.where(score > conf_thresholds[1])[0]
-        total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
+        scores = np.expand_dims(out_prob1[:, 1], axis=1)
+        pass_t = np.where(scores > conf_thresholds[1])[0]
+        total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
         mv = out_conv5_2[pass_t, :]
         if total_boxes.shape[0] > 0:
             pick = nms(total_boxes, self.rnet_nms_thresh, 'Union')
@@ -278,9 +278,9 @@ class MTCNN(object):
         self.onet.setInput(onet_input)
         out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
         
-        score = np.expand_dims(out_prob1[:, 1], axis=1)
-        pass_t = np.where(score > conf_thresholds[2])[0]
-        total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
+        scores = np.expand_dims(out_prob1[:, 1], axis=1)
+        pass_t = np.where(scores > conf_thresholds[2])[0]
+        total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
         points = self._decode_points(out_conv6_3[pass_t, :], total_boxes)
         mv = out_conv6_2[pass_t, :]
         if total_boxes.shape[0] > 0:
