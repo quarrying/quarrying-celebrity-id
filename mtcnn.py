@@ -201,26 +201,26 @@ class MTCNN(object):
         return results.T
         
     @staticmethod
-    def _crop_and_resize(img, dst_size, boxes):
-        h, w = img.shape[:2]
+    def _crop_and_resize(image, dst_size, boxes):
+        h, w = image.shape[:2]
         boxes = np.fix(boxes[:, :4])
         num_boxes = boxes.shape[0]
         dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(boxes, w, h)
         outputs = np.zeros((num_boxes, dst_size, dst_size, 3))
         for k in range(num_boxes):
             tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
-            tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = img[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
+            tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = image[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
             outputs[k,:,:,:] = cv2.resize(tmp, (dst_size, dst_size))
         return outputs
 
-    def _run_first_stage(self, img, min_size, conf_threshold, factor):
-        h, w = img.shape[:2]
+    def _run_first_stage(self, image, min_size, conf_threshold, factor):
+        h, w = image.shape[:2]
         total_boxes = np.zeros((0, 9), np.float32)
         scale_factors = self._get_scale_factors(min(h, w), factor, min_size)
         for scale_factor in scale_factors:
             hs = int(np.ceil(h * scale_factor))
             ws = int(np.ceil(w * scale_factor))
-            pnet_input = cv2.resize(img, (ws, hs))
+            pnet_input = cv2.resize(image, (ws, hs))
             pnet_input = pnet_input.astype(np.float32)
             pnet_input = np.expand_dims(pnet_input, axis=0)
             pnet_input = self._preprocess(pnet_input)
@@ -245,17 +245,17 @@ class MTCNN(object):
             total_boxes = inflate_boxes_to_square(total_boxes)
         return total_boxes
 
-    def detect(self, img, min_size, conf_thresholds, factor):
-        img = normalize_image_shape(img)
+    def detect(self, image, min_size, conf_thresholds, factor):
+        image = normalize_image_shape(image)
 
         # First stage
         points = np.empty((0, 10), np.float32)
-        total_boxes = self._run_first_stage(img, min_size, conf_thresholds[0], factor)
+        total_boxes = self._run_first_stage(image, min_size, conf_thresholds[0], factor)
         if total_boxes.shape[0] == 0:
             return total_boxes, points
 
         # Second stage
-        rnet_input = self._crop_and_resize(img, 24, total_boxes)
+        rnet_input = self._crop_and_resize(image, 24, total_boxes)
         rnet_input = self._preprocess(rnet_input)
         self.rnet.setInput(rnet_input)
         out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
@@ -273,7 +273,7 @@ class MTCNN(object):
             return total_boxes, points
 
         # Third stage
-        onet_input = self._crop_and_resize(img, 48, total_boxes)
+        onet_input = self._crop_and_resize(image, 48, total_boxes)
         onet_input = self._preprocess(onet_input)
         self.onet.setInput(onet_input)
         out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
