@@ -105,7 +105,7 @@ def pad(boxesA, w, h):
     
 def nms(boxes, threshold, type):
     if boxes.shape[0] == 0:
-        return np.array([])
+        return []
     x1 = boxes[:,0]
     y1 = boxes[:,1]
     x2 = boxes[:,2]
@@ -222,8 +222,8 @@ class MTCNN(object):
 
     def _run_first_stage(self, image, min_size, conf_threshold, factor):
         image_height, image_width = image.shape[:2]
-        total_boxes = np.zeros((0, 9), np.float32)
         scale_factors = self._get_scale_factors(min(image_height, image_width), factor, min_size)
+        boxes_list = []
         for scale_factor in scale_factors:
             dst_width = int(np.ceil(image_width * scale_factor))
             dst_height = int(np.ceil(image_height * scale_factor))
@@ -234,22 +234,16 @@ class MTCNN(object):
 
             self.pnet.setInput(pnet_input)
             out_prob1, out_conv4_2 = self.pnet.forward(['prob1', 'conv4-2'])
-            boxes = self._generate_boxes(out_prob1[0,1,:,:], out_conv4_2[0], 
+            boxes = self._generate_boxes(out_prob1[0, 1, :, :], out_conv4_2[0], 
                                          scale_factor, conf_threshold)
-            if boxes.shape[0] != 0:
-                pick = nms(boxes, self.pnet_nms_thresh_intra, 'Union')
-                if len(pick) > 0 :
-                    boxes = boxes[pick, :]
-            if boxes.shape[0] != 0:
-                total_boxes = np.concatenate((total_boxes, boxes), axis=0)
-             
-        if total_boxes.shape[0] != 0:
-            pick = nms(total_boxes, self.pnet_nms_thresh_inter, 'Union')
-            total_boxes = total_boxes[pick, :]
-            scores = np.expand_dims(total_boxes[:, 4], axis=1)
-            total_boxes = self._decode_boxes(total_boxes[:,5:], total_boxes[:,:4])
-            total_boxes = np.concatenate((total_boxes, scores), axis=1)
-            total_boxes = inflate_boxes_to_square(total_boxes)
+            pick = nms(boxes, self.pnet_nms_thresh_intra, 'Union')
+            boxes_list.append(boxes[pick, :])
+
+        total_boxes_ex = np.vstack(boxes_list)
+        pick = nms(total_boxes_ex, self.pnet_nms_thresh_inter, 'Union')
+        total_boxes = self._decode_boxes(total_boxes_ex[pick, 5:], total_boxes_ex[pick, :4])
+        total_boxes = np.concatenate((total_boxes, total_boxes_ex[pick, 4:5]), axis=1)
+        total_boxes = inflate_boxes_to_square(total_boxes)
         return total_boxes
 
     def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
@@ -270,12 +264,11 @@ class MTCNN(object):
         scores = np.expand_dims(out_prob1[:, 1], axis=1)
         pass_t = np.where(scores > conf_thresholds[1])[0]
         total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
-        mv = out_conv5_2[pass_t, :]
-        if total_boxes.shape[0] > 0:
-            pick = nms(total_boxes, self.rnet_nms_thresh, 'Union')
-            if len(pick) > 0 :
-                total_boxes = self._decode_boxes(mv[pick, :], total_boxes[pick, :])
-                total_boxes = inflate_boxes_to_square(total_boxes)
+        offsets = out_conv5_2[pass_t, :]
+
+        pick = nms(total_boxes, self.rnet_nms_thresh, 'Union')
+        total_boxes = self._decode_boxes(offsets[pick, :], total_boxes[pick, :])
+        total_boxes = inflate_boxes_to_square(total_boxes)
         if total_boxes.shape[0] == 0:
             return total_boxes, points
 
@@ -289,12 +282,11 @@ class MTCNN(object):
         pass_t = np.where(scores > conf_thresholds[2])[0]
         total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
         points = self._decode_points(out_conv6_3[pass_t, :], total_boxes)
-        mv = out_conv6_2[pass_t, :]
-        if total_boxes.shape[0] > 0:
-            total_boxes = self._decode_boxes(mv, total_boxes)
-            pick = nms(total_boxes, self.onet_nms_thresh, 'Min')
-            if len(pick) > 0 :
-                total_boxes = total_boxes[pick, :]
-                points = points[pick, :]
+        offsets = out_conv6_2[pass_t, :]
+
+        total_boxes = self._decode_boxes(offsets, total_boxes)
+        pick = nms(total_boxes, self.onet_nms_thresh, 'Min')
+        total_boxes = total_boxes[pick, :]
+        points = points[pick, :]
         return total_boxes, points
 
