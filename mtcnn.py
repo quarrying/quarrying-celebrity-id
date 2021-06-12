@@ -202,10 +202,10 @@ class MTCNN(object):
         
     @staticmethod
     def _crop_and_resize(image, dst_size, boxes):
-        h, w = image.shape[:2]
+        image_height, image_width = image.shape[:2]
         boxes = np.fix(boxes[:, :4])
         num_boxes = boxes.shape[0]
-        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(boxes, w, h)
+        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(boxes, image_width, image_height)
         outputs = np.zeros((num_boxes, dst_size, dst_size, 3))
         for k in range(num_boxes):
             tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
@@ -214,13 +214,13 @@ class MTCNN(object):
         return outputs
 
     def _run_first_stage(self, image, min_size, conf_threshold, factor):
-        h, w = image.shape[:2]
+        image_height, image_width = image.shape[:2]
         total_boxes = np.zeros((0, 9), np.float32)
-        scale_factors = self._get_scale_factors(min(h, w), factor, min_size)
+        scale_factors = self._get_scale_factors(min(image_height, image_width), factor, min_size)
         for scale_factor in scale_factors:
-            hs = int(np.ceil(h * scale_factor))
-            ws = int(np.ceil(w * scale_factor))
-            pnet_input = cv2.resize(image, (ws, hs))
+            dst_width = int(np.ceil(image_width * scale_factor))
+            dst_height = int(np.ceil(image_height * scale_factor))
+            pnet_input = cv2.resize(image, (dst_width, dst_height))
             pnet_input = pnet_input.astype(np.float32)
             pnet_input = np.expand_dims(pnet_input, axis=0)
             pnet_input = self._preprocess(pnet_input)
