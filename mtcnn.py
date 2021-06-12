@@ -196,11 +196,8 @@ class MTCNN(object):
         results = np.concatenate((xy_mins, xy_maxs, score, loc_offsets), axis=0)
         return results.T
         
-    def detect(self, img, minsize, conf_thresholds, factor):
-        img = normalize_image_shape(img)
+    def _first_stage(self, img, minsize, conf_threshold, factor):
         h, w = img.shape[:2]
-
-        # First stage
         total_boxes = np.zeros((0, 9), np.float32)
         scale_factors = self._get_scale_factors(min(h, w), factor, minsize)
         for scale_factor in scale_factors:
@@ -215,7 +212,7 @@ class MTCNN(object):
             out_prob1, out_conv4_2 = self.pnet.forward(['prob1', 'conv4-2'])
 
             boxes = self._generate_boxes(out_prob1[0,1,:,:], out_conv4_2[0], 
-                                         scale_factor, conf_thresholds[0])
+                                         scale_factor, conf_threshold)
             if boxes.shape[0] != 0:
                 pick = nms(boxes, self.pnet_nms_thresh_single, 'Union')
                 if len(pick) > 0 :
@@ -223,8 +220,7 @@ class MTCNN(object):
             if boxes.shape[0] != 0:
                 total_boxes = np.concatenate((total_boxes, boxes), axis=0)
              
-        num_boxes = total_boxes.shape[0]
-        if num_boxes > 0:
+        if total_boxes.shape[0] != 0:
             pick = nms(total_boxes, self.pnet_nms_thresh_total, 'Union')
             total_boxes = total_boxes[pick, :]
             confidence = np.expand_dims(total_boxes[:, 4], axis=1)
@@ -232,66 +228,74 @@ class MTCNN(object):
             total_boxes = np.concatenate((total_boxes, confidence), axis=1)
             total_boxes = inflate_boxes_to_square(total_boxes)
             total_boxes[:, :4] = np.fix(total_boxes[:, :4])
-            dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes, w, h)
-        
-        # Second stage
-        points = []
+        return total_boxes
+
+    def detect(self, img, minsize, conf_thresholds, factor):
+        img = normalize_image_shape(img)
+        h, w = img.shape[:2]
+
+        # First stage
+        points = np.empty((0, 10), np.float32)
+        total_boxes = self._first_stage(img, minsize, conf_thresholds[0], factor)
         num_boxes = total_boxes.shape[0]
-        if num_boxes > 0:
-            rnet_input = np.zeros((num_boxes, 24, 24, 3))
-            for k in range(num_boxes):
-                tmp = np.zeros((int(tmph[k]) + 1, int(tmpw[k]) + 1, 3))
-                tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = img[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
-                rnet_input[k, :, :, :] = cv2.resize(tmp, (24, 24))
+        if num_boxes == 0:
+            return total_boxes, points
 
-            rnet_input = self._preprocess(rnet_input)
-            self.rnet.setInput(rnet_input)
-            out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
+        # Second stage
+        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes, w, h)
+        rnet_input = np.zeros((num_boxes, 24, 24, 3))
+        for k in range(num_boxes):
+            tmp = np.zeros((int(tmph[k]) + 1, int(tmpw[k]) + 1, 3))
+            tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = img[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
+            rnet_input[k, :, :, :] = cv2.resize(tmp, (24, 24))
 
-            score = np.expand_dims(out_prob1[:, 1], axis=1)
-            pass_t = np.where(score > conf_thresholds[1])[0]
-            total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
-            mv = out_conv5_2[pass_t, :]
-            if total_boxes.shape[0] > 0:
-                pick = nms(total_boxes, 0.7, 'Union')
-                if len(pick) > 0 :
-                    total_boxes = self._decode_boxes(mv[pick, :], total_boxes[pick, :])
-                    total_boxes = inflate_boxes_to_square(total_boxes)
-                    
-            num_boxes = total_boxes.shape[0]
-            if num_boxes > 0:
-                total_boxes = np.fix(total_boxes)
-                dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes, w, h)
-               
-                onet_input = np.zeros((num_boxes, 48, 48, 3))
-                for k in range(num_boxes):
-                    tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
-                    tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = img[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
-                    onet_input[k,:,:,:] = cv2.resize(tmp, (48, 48))
-                    
-                onet_input = self._preprocess(onet_input)
-                self.onet.setInput(onet_input)
-                out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
-                
-                score = out_prob1[:, 1]
-                points = out_conv6_3
-                pass_t = np.where(score > conf_thresholds[2])[0]
-                points = points[pass_t, :]
-                score = np.array([score[pass_t]]).T
-                total_boxes = np.concatenate( (total_boxes[pass_t, :4], score), axis=1)
-                mv = out_conv6_2[pass_t, :].T
-                w = total_boxes[:,3] - total_boxes[:,1] + 1
-                h = total_boxes[:,2] - total_boxes[:,0] + 1
+        rnet_input = self._preprocess(rnet_input)
+        self.rnet.setInput(rnet_input)
+        out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
 
-                points[:, 0:5] = np.tile(w, (5,1)).T * points[:, 0:5] + np.tile(total_boxes[:,0], (5,1)).T - 1 
-                points[:, 5:10] = np.tile(h, (5,1)).T * points[:, 5:10] + np.tile(total_boxes[:,1], (5,1)).T -1
-                
-                mv = out_conv6_2[pass_t, :]
-                if total_boxes.shape[0] > 0:
-                    total_boxes = self._decode_boxes(mv, total_boxes)
-                    pick = nms(total_boxes, 0.7, 'Min')
-                    if len(pick) > 0 :
-                        total_boxes = total_boxes[pick, :]
-                        points = points[pick, :]
+        score = np.expand_dims(out_prob1[:, 1], axis=1)
+        pass_t = np.where(score > conf_thresholds[1])[0]
+        total_boxes = np.concatenate((total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
+        mv = out_conv5_2[pass_t, :]
+        if total_boxes.shape[0] > 0:
+            pick = nms(total_boxes, 0.7, 'Union')
+            if len(pick) > 0 :
+                total_boxes = self._decode_boxes(mv[pick, :], total_boxes[pick, :])
+                total_boxes = inflate_boxes_to_square(total_boxes)
+
+        num_boxes = total_boxes.shape[0]
+        if num_boxes == 0:
+            return total_boxes, points
+
+        # Third stage
+        total_boxes = np.fix(total_boxes)
+        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes, w, h)
+        
+        onet_input = np.zeros((num_boxes, 48, 48, 3))
+        for k in range(num_boxes):
+            tmp = np.zeros((int(tmph[k]), int(tmpw[k]),3))
+            tmp[int(dy[k]):int(edy[k])+1, int(dx[k]):int(edx[k])+1] = img[int(y[k]):int(ey[k])+1, int(x[k]):int(ex[k])+1]
+            onet_input[k,:,:,:] = cv2.resize(tmp, (48, 48))
+            
+        onet_input = self._preprocess(onet_input)
+        self.onet.setInput(onet_input)
+        out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
+        
+        score = np.expand_dims(out_prob1[:, 1], axis=1)
+        pass_t = np.where(score > conf_thresholds[2])[0]
+        total_boxes = np.concatenate( (total_boxes[pass_t, :4], score[pass_t, :]), axis=1)
+        w = total_boxes[:,3] - total_boxes[:,1] + 1
+        h = total_boxes[:,2] - total_boxes[:,0] + 1
+        points = out_conv6_3[pass_t, :]
+        points[:, 0:5] = np.tile(w, (5,1)).T * points[:, 0:5] + np.tile(total_boxes[:,0], (5,1)).T - 1 
+        points[:, 5:10] = np.tile(h, (5,1)).T * points[:, 5:10] + np.tile(total_boxes[:,1], (5,1)).T -1
+        
+        mv = out_conv6_2[pass_t, :]
+        if total_boxes.shape[0] > 0:
+            total_boxes = self._decode_boxes(mv, total_boxes)
+            pick = nms(total_boxes, 0.7, 'Min')
+            if len(pick) > 0 :
+                total_boxes = total_boxes[pick, :]
+                points = points[pick, :]
         return total_boxes, points
 
