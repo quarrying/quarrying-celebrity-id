@@ -139,8 +139,8 @@ class MTCNN(object):
         self.pnet_input_size = 12
         self.rnet_input_size = 24
         self.onet_input_size = 48
-        self.pnet_nms_thresh_single = 0.5
-        self.pnet_nms_thresh_total = 0.7
+        self.pnet_nms_thresh_intra = 0.5
+        self.pnet_nms_thresh_inter = 0.7
         
     @staticmethod
     def _get_scale_factors(min_side_length, factor, minsize):
@@ -171,16 +171,18 @@ class MTCNN(object):
         boxes[:, 2] *= reference_widths
         boxes[:, 3] *= reference_heights
         boxes[:, :4] += reference_boxes[:, :4]
-        boxes = np.concatenate([boxes, reference_boxes[:,4:]], axis=1)
+        boxes = np.concatenate([boxes, reference_boxes[:, 4:]], axis=1)
         return boxes
 
     @staticmethod
     def _decode_points(points, reference_boxes, copy=True):
         points = np.array(points, dtype=np.float32, copy=copy)
-        widths = np.expand_dims(reference_boxes[:, 3] - reference_boxes[:, 1] + 1, axis=1)
-        heights = np.expand_dims(reference_boxes[:, 2] - reference_boxes[:, 0] + 1, axis=1)
-        points[:, 0:5] = widths * points[:, 0:5] + np.expand_dims(reference_boxes[:, 0], axis=1) - 1 
-        points[:, 5:10] = heights * points[:, 5:10] + np.expand_dims(reference_boxes[:, 1], axis=1) - 1
+        reference_widths = reference_boxes[:, 2] - reference_boxes[:, 0] + 1
+        reference_heights = reference_boxes[:, 3] - reference_boxes[:, 1] + 1
+        points[:, 0:5] *= np.expand_dims(reference_widths, axis=1)
+        points[:, 5:10] *= np.expand_dims(reference_heights, axis=1)
+        points[:, 0:5] += np.expand_dims(reference_boxes[:, 0], axis=1) - 1 
+        points[:, 5:10] += np.expand_dims(reference_boxes[:, 1], axis=1) - 1
         return points
 
     @staticmethod
@@ -216,18 +218,18 @@ class MTCNN(object):
             boxes = self._generate_boxes(out_prob1[0,1,:,:], out_conv4_2[0], 
                                          scale_factor, conf_threshold)
             if boxes.shape[0] != 0:
-                pick = nms(boxes, self.pnet_nms_thresh_single, 'Union')
+                pick = nms(boxes, self.pnet_nms_thresh_intra, 'Union')
                 if len(pick) > 0 :
                     boxes = boxes[pick, :]
             if boxes.shape[0] != 0:
                 total_boxes = np.concatenate((total_boxes, boxes), axis=0)
              
         if total_boxes.shape[0] != 0:
-            pick = nms(total_boxes, self.pnet_nms_thresh_total, 'Union')
+            pick = nms(total_boxes, self.pnet_nms_thresh_inter, 'Union')
             total_boxes = total_boxes[pick, :]
-            confidence = np.expand_dims(total_boxes[:, 4], axis=1)
+            score = np.expand_dims(total_boxes[:, 4], axis=1)
             total_boxes = self._decode_boxes(total_boxes[:,5:], total_boxes[:,:4])
-            total_boxes = np.concatenate((total_boxes, confidence), axis=1)
+            total_boxes = np.concatenate((total_boxes, score), axis=1)
             total_boxes = inflate_boxes_to_square(total_boxes)
             total_boxes[:, :4] = np.fix(total_boxes[:, :4])
         return total_boxes
@@ -294,6 +296,5 @@ class MTCNN(object):
             if len(pick) > 0 :
                 total_boxes = total_boxes[pick, :]
                 points = points[pick, :]
-
         return total_boxes, points
 
