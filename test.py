@@ -16,10 +16,10 @@ def imread_ex(filename, flags=-1):
         
         
 def draw_rectangles(image, boxes):
-    x1 = boxes[:,0]
-    y1 = boxes[:,1]
-    x2 = boxes[:,2]
-    y2 = boxes[:,3]
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
     for i in range(x1.shape[0]):
         cv2.rectangle(image, (int(x1[i]), int(y1[i])), (int(x2[i]), int(y2[i])), 
                       (0,255,0), 1)
@@ -44,17 +44,14 @@ if __name__ == '__main__':
     for k, filename in enumerate(filenames):
         print('[{}/{}]{}'.format(k+1, len(filenames), filename))
         img = imread_ex(filename)
-        img_matlab = img.copy()
-        tmp = img_matlab[:,:,2].copy()
-        img_matlab[:,:,2] = img_matlab[:,:,0]
-        img_matlab[:,:,0] = tmp
+        img_matlab = img[:,:,::-1]
         
         start_time = time.time()
-        boxes, points = mtcnn.detect(img_matlab, min_size, threshold, factor)
+        boxes, landmarks = mtcnn.detect(img_matlab, min_size, threshold, factor)
         print(time.time() - start_time)
         print('num_faces: ', len(boxes))
         img = draw_rectangles(img, boxes)
-        img = draw_landmarks(img, points)
+        img = draw_landmarks(img, landmarks)
         cv2.imshow('img', img)
         key = cv2.waitKey(0)
         if key == 27:

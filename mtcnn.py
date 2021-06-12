@@ -150,15 +150,15 @@ class MTCNN(object):
         return boxes
 
     @staticmethod
-    def _decode_points(points, reference_boxes, copy=True):
-        points = np.array(points, dtype=np.float32, copy=copy)
+    def _decode_landmarks(landmarks, reference_boxes, copy=True):
+        landmarks = np.array(landmarks, dtype=np.float32, copy=copy)
         reference_widths = reference_boxes[:, 2] - reference_boxes[:, 0] + 1
         reference_heights = reference_boxes[:, 3] - reference_boxes[:, 1] + 1
-        points[:, 0:5] *= np.expand_dims(reference_widths, axis=1)
-        points[:, 5:10] *= np.expand_dims(reference_heights, axis=1)
-        points[:, 0:5] += np.expand_dims(reference_boxes[:, 0], axis=1) - 1 
-        points[:, 5:10] += np.expand_dims(reference_boxes[:, 1], axis=1) - 1
-        return points
+        landmarks[:, 0:5] *= np.expand_dims(reference_widths, axis=1)
+        landmarks[:, 5:10] *= np.expand_dims(reference_heights, axis=1)
+        landmarks[:, 0:5] += np.expand_dims(reference_boxes[:, 0], axis=1) - 1 
+        landmarks[:, 5:10] += np.expand_dims(reference_boxes[:, 1], axis=1) - 1
+        return landmarks
 
     @staticmethod
     def _generate_boxes(cls_probs, loc_preds, scale_factor, conf_threshold):
@@ -206,54 +206,54 @@ class MTCNN(object):
             pick = nms(boxes, self.pnet_nms_thresh_intra, 'Union')
             boxes_list.append(boxes[pick, :])
 
-        total_boxes_ex = np.vstack(boxes_list)
-        pick = nms(total_boxes_ex, self.pnet_nms_thresh_inter, 'Union')
-        total_boxes = self._decode_boxes(total_boxes_ex[pick, 5:], total_boxes_ex[pick, :4])
-        total_boxes = np.concatenate((total_boxes, total_boxes_ex[pick, 4:5]), axis=1)
-        total_boxes = inflate_boxes_to_square(total_boxes)
-        return total_boxes
+        boxes_ex = np.vstack(boxes_list)
+        pick = nms(boxes_ex, self.pnet_nms_thresh_inter, 'Union')
+        boxes = self._decode_boxes(boxes_ex[pick, 5:], boxes_ex[pick, :4])
+        boxes = np.concatenate((boxes, boxes_ex[pick, 4:5]), axis=1)
+        boxes = inflate_boxes_to_square(boxes)
+        return boxes
 
     def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
         image = normalize_image_shape(image)
 
         # First stage
-        points = np.empty((0, 10), np.float32)
-        total_boxes = self._run_first_stage(image, min_size, conf_thresholds[0], factor)
-        if total_boxes.shape[0] == 0:
-            return total_boxes, points
+        landmarks = np.empty((0, 10), np.float32)
+        boxes = self._run_first_stage(image, min_size, conf_thresholds[0], factor)
+        if boxes.shape[0] == 0:
+            return boxes, landmarks
 
         # Second stage
-        rnet_input = self._crop_and_resize(image, 24, total_boxes)
+        rnet_input = self._crop_and_resize(image, 24, boxes)
         rnet_input = self._preprocess(rnet_input)
         self.rnet.setInput(rnet_input)
         out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
 
         scores = np.expand_dims(out_prob1[:, 1], axis=1)
         pass_t = np.where(scores > conf_thresholds[1])[0]
-        total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
+        boxes = np.concatenate((boxes[pass_t, :4], scores[pass_t, :]), axis=1)
         offsets = out_conv5_2[pass_t, :]
 
-        pick = nms(total_boxes, self.rnet_nms_thresh, 'Union')
-        total_boxes = self._decode_boxes(offsets[pick, :], total_boxes[pick, :])
-        total_boxes = inflate_boxes_to_square(total_boxes)
-        if total_boxes.shape[0] == 0:
-            return total_boxes, points
+        pick = nms(boxes, self.rnet_nms_thresh, 'Union')
+        boxes = self._decode_boxes(offsets[pick, :], boxes[pick, :])
+        boxes = inflate_boxes_to_square(boxes)
+        if boxes.shape[0] == 0:
+            return boxes, landmarks
 
         # Third stage
-        onet_input = self._crop_and_resize(image, 48, total_boxes)
+        onet_input = self._crop_and_resize(image, 48, boxes)
         onet_input = self._preprocess(onet_input)
         self.onet.setInput(onet_input)
         out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
         
         scores = np.expand_dims(out_prob1[:, 1], axis=1)
         pass_t = np.where(scores > conf_thresholds[2])[0]
-        total_boxes = np.concatenate((total_boxes[pass_t, :4], scores[pass_t, :]), axis=1)
-        points = self._decode_points(out_conv6_3[pass_t, :], total_boxes)
+        boxes = np.concatenate((boxes[pass_t, :4], scores[pass_t, :]), axis=1)
+        landmarks = self._decode_landmarks(out_conv6_3[pass_t, :], boxes)
         offsets = out_conv6_2[pass_t, :]
 
-        total_boxes = self._decode_boxes(offsets, total_boxes)
-        pick = nms(total_boxes, self.onet_nms_thresh, 'Min')
-        total_boxes = total_boxes[pick, :]
-        points = points[pick, :]
-        return total_boxes, points
+        boxes = self._decode_boxes(offsets, boxes)
+        pick = nms(boxes, self.onet_nms_thresh, 'Min')
+        boxes = boxes[pick, :]
+        landmarks = landmarks[pick, :]
+        return boxes, landmarks
 
