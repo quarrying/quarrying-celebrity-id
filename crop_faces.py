@@ -65,7 +65,7 @@ def clean_faces(src_dir, detector, dst_dir_prefix=None, min_face_size=30):
         print('[{}/{}] {}'.format(k+1, len(filenames), name))
         start_time = time.time()
         
-        img = imread_ex(name, -1)
+        img = imread_ex(name, 1)
         if (img is None) or (img.dtype != np.uint8):
             print('Image file corrupted!')
             khandy.move_file(name, dst_dir_corrupt)
@@ -121,16 +121,14 @@ def crop_faces(src_dir, detector, dst_dir_prefix=None,
         detected_rects, _ = detector.detect(img)
         if len(detected_rects) == 0:
             khandy.move_file(name, dst_dir_nonface)
-        # elif len(detected_rects) > 1:
-        #     khandy.move_file(name, dst_dir_multiple)
         else:
             scaled_rects = khandy.scale_boxes_wrt_centers(detected_rects, width_scale, height_scale)
             scaled_rects = khandy.clip_boxes_to_image(scaled_rects, image_width, image_height, subpixel=False)
-            keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
-            scaled_rects = scaled_rects[keep]
-            scaled_rects = scaled_rects.astype(np.int32)
-        
+
             if not only_max_face:
+                keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
+                scaled_rects = scaled_rects[keep]
+                scaled_rects = scaled_rects.astype(np.int32)
                 stem, old_ext = os.path.splitext(os.path.basename(name))
                 zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
                 for k, scaled_rect in enumerate(scaled_rects):
@@ -192,11 +190,11 @@ def crop_faces_video(filename, detector, dst_dir=None,
         if len(detected_rects) != 0:
             scaled_rects = khandy.scale_boxes_wrt_centers(detected_rects, width_scale, height_scale)
             scaled_rects = khandy.clip_boxes_to_image(scaled_rects, image_width, image_height, subpixel=False)
-            keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
-            scaled_rects = scaled_rects[keep]
-            scaled_rects = scaled_rects.astype(np.int32)
             
             if not only_max_face:
+                keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
+                scaled_rects = scaled_rects[keep]
+                scaled_rects = scaled_rects.astype(np.int32)
                 face_zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
                 for k, scaled_rect in enumerate(scaled_rects):
                     cropped = img[scaled_rect[1]:scaled_rect[3]+1, scaled_rect[0]:scaled_rect[2]+1, ...]
