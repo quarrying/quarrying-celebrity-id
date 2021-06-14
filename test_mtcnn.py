@@ -4,7 +4,6 @@ import glob
 import cv2
 import numpy as np
 from mtcnn import MTCNN
-# from mtcnn_raw import MTCNN
 
 
 def imread_ex(filename, flags=-1):
@@ -44,8 +43,7 @@ if __name__ == '__main__':
     for k, filename in enumerate(filenames):
         print('[{}/{}]{}'.format(k+1, len(filenames), filename))
         img = imread_ex(filename)
-        img_matlab = img[:,:,::-1]
-        
+
         start_time = time.time()
         boxes, landmarks = mtcnn.detect(img_matlab, min_size, threshold, factor)
         print(time.time() - start_time)

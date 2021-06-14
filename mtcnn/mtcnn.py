@@ -121,7 +121,7 @@ class MTCNN(object):
         self.pnet_nms_thresh_inter = 0.7
         self.rnet_nms_thresh = 0.7
         self.onet_nms_thresh = 0.7
-
+        
     @staticmethod
     def _get_scale_factors(min_side_length, factor, min_size):
         factor_count = 0
@@ -230,7 +230,8 @@ class MTCNN(object):
 
     def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
         image = normalize_image_shape(image)
-
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
         # First stage
         landmarks = np.empty((0, 10), np.float32)
         boxes = self._run_first_stage(image, min_size, conf_thresholds[0], factor)
