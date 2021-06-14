@@ -8,5 +8,5 @@ from crop_faces import crop_faces_video
 if __name__ == '__main__':
     detector = MTCNN()
 
-    crop_faces('F:/_Data/Celebrity/_gallery/star_chinese_W nonface', detector)
+    crop_faces('F:/_Data/Celebrity/_gallery/star_chinese_W', detector)
     
