@@ -45,6 +45,8 @@ def align_faces(src_dir, detector, dst_dir=None, extname='.jpg'):
         if (img is None) or (img.dtype != np.uint8):
             print('Image file corrupted!')
             continue
+        if min(img.shape[:2]) > 1280:
+            img = khandy.resize_image_short(img, 1280)
 
         boxes, landmarks = detector.detect(img)
         if len(boxes) != 0:
