@@ -5,6 +5,9 @@
 
 本项目利用了其他开源项目的模型 ([MTCNN_face_detection_alignment](https://github.com/kpzhang93/MTCNN_face_detection_alignment) 和 [InsightFace_Pytorch](https://github.com/TreB1eN/InsightFace_Pytorch), 在此表示感谢. 
 
+## 依赖
+- OpenCV 4.5+
+- [KHandy](https://github.com/quarrying/KHandy)
 
 ## 参考
 - https://github.com/kpzhang93/MTCNN_face_detection_alignment

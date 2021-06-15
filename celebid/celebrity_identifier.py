@@ -13,7 +13,7 @@ def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labe
     if probe_features.ndim == 1:
         probe_features = np.expand_dims(probe_features, 0)
     distances = khandy.pairwise_distances(probe_features, gallery_features)
-    topk_distances, topk_indices = khandy.find_topk(distances, k, axis=-1, largest=False)
+    topk_distances, topk_indices = khandy.top_k(distances, k, axis=-1, largest=False)
     topk_labels = []
     for one_topk_indices in topk_indices:
         one_topk_labels = [gallery_labels[i] for i in one_topk_indices]
@@ -31,12 +31,6 @@ def detect_align_and_extract(image, detector, extractor):
     features = np.vstack(features)
     return face_boxes, face_landmarks, features
     
-
-def compare_1vsn(image, gallery_features, gallery_labels, detector, extractor):
-    face_boxes, face_landmarks, features = detect_align_and_extract(image, detector, extractor)
-    labels, distances = get_topk_labels_and_distances(features, gallery_features, gallery_labels)
-    return face_boxes, face_landmarks, labels, distances
-    
     
 class CelebrityIdentifier(object):
     def __init__(self):
@@ -46,11 +40,12 @@ class CelebrityIdentifier(object):
         self.detector = FaceDetector()
         self.extractor = FaceFeatureExtractor()
         
+    def get_celebrity_names(self):
+        return self.gallery_labels
+        
     def identify(self, image):
-        face_boxes, face_landmarks, labels, distances = compare_1vsn(image, self.gallery_features, 
-                                                                     self.gallery_labels, 
-                                                                     self.detector, 
-                                                                     self.extractor)
+        face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
+        labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels)
         return face_boxes, face_landmarks, labels, distances
         
 
