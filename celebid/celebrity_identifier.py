@@ -23,12 +23,15 @@ def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labe
 
 def detect_align_and_extract(image, detector, extractor):
     face_boxes, face_landmarks = detector.detect(image)
-    features = []
+    feature_list = []
     for face_landmark in face_landmarks:
         aligned_face_image = extractor.align_and_crop(image, face_landmark)
         feature = extractor.extract(aligned_face_image)
-        features.append(feature)
-    features = np.vstack(features)
+        feature_list.append(feature)
+    if len(feature_list):
+        features = np.vstack(feature_list)
+    else:
+        features = np.array([])
     return face_boxes, face_landmarks, features
     
     
@@ -43,9 +46,13 @@ class CelebrityIdentifier(object):
     def get_celebrity_names(self):
         return self.gallery_labels
         
-    def identify(self, image):
+    def identify(self, image, k=5):
         face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
-        labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels)
+        if len(features) != 0:
+            labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
+        else:
+            labels = []
+            distances = np.array([])
         return face_boxes, face_landmarks, labels, distances
         
 
