@@ -34,7 +34,7 @@ def draw_landmarks(image, landmarks):
     
     
 if __name__ == '__main__':
-    celeb_identifier = CelebrityIdentifier()
+    celeb_identifier = CelebrityIdentifier(min_size=40)
     filenames = glob.glob('F:\_Data\Celebrity\chinese\politican_chinese\曾荫权 faces/*.jpg')
     for k, filename in enumerate(filenames):
         image = imread_ex(filename, 1)

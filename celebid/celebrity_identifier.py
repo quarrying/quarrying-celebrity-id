@@ -34,11 +34,11 @@ def detect_align_and_extract(image, detector, extractor):
     
     
 class CelebrityIdentifier(object):
-    def __init__(self):
+    def __init__(self, min_size=40):
         curr_dir = os.path.dirname(__file__)
         gallery_feature_dict = np.load(os.path.join(curr_dir, 'celebrity_features.npy'), allow_pickle=True).item()
         self.gallery_labels, self.gallery_features = khandy.convert_feature_dict_to_array(gallery_feature_dict)
-        self.detector = FaceDetector()
+        self.detector = FaceDetector(min_size=min_size)
         self.extractor = FaceFeatureExtractor()
         
     def get_celebrity_names(self):
