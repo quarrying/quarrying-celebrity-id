@@ -220,8 +220,11 @@ class MTCNN(object):
                                          scale_factor, conf_threshold)
             pick = nms(boxes, self.pnet_nms_thresh_intra, 'Union')
             boxes_list.append(boxes[pick, :])
-
-        boxes_ex = np.vstack(boxes_list)
+        if len(boxes_list) != 0:
+            boxes_ex = np.vstack(boxes_list)
+        else:
+            boxes_ex = np.empty((0, 9), np.float32)
+            
         pick = nms(boxes_ex, self.pnet_nms_thresh_inter, 'Union')
         boxes = self._decode_boxes(boxes_ex[pick, 5:], boxes_ex[pick, :4])
         boxes = np.concatenate((boxes, boxes_ex[pick, 4:5]), axis=1)
