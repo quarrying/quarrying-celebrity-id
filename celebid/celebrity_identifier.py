@@ -1,12 +1,10 @@
 import os
-import sys
 
 import khandy
 import numpy as np
 
-sys.path.insert(0, '..')
-from detector import FaceDetector
-from extractor import FaceFeatureExtractor
+from .detector import FaceDetector
+from .extractor import FaceFeatureExtractor
 
 
 def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labels, k=5):
