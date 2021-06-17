@@ -42,11 +42,7 @@ class CelebrityIdentifier(object):
         
     def identify(self, image, k=5):
         face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
-        if len(features) != 0:
-            labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
-        else:
-            labels = []
-            distances = np.array([])
+        labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
         return face_boxes, face_landmarks, labels, distances
         
 
