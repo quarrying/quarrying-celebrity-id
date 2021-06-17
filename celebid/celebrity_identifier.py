@@ -21,15 +21,11 @@ def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labe
 
 def detect_align_and_extract(image, detector, extractor):
     face_boxes, face_landmarks = detector.detect(image)
-    feature_list = []
-    for face_landmark in face_landmarks:
+    feature_dim = extractor.get_feature_dim()
+    features = np.empty((len(face_landmarks), feature_dim), np.float32)
+    for k, face_landmark in enumerate(face_landmarks):
         aligned_face_image = extractor.align_and_crop(image, face_landmark)
-        feature = extractor.extract(aligned_face_image)
-        feature_list.append(feature)
-    if len(feature_list):
-        features = np.vstack(feature_list)
-    else:
-        features = np.array([])
+        features[k] = extractor.extract(aligned_face_image)
     return face_boxes, face_landmarks, features
     
     

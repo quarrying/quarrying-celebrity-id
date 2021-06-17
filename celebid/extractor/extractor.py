@@ -64,7 +64,11 @@ class FaceFeatureExtractor(object):
         images /= 127.5
         images = np.transpose(images, (0, 3, 1, 2))
         return images
-            
+        
+    @staticmethod
+    def get_feature_dim():
+        return 512
+
     def extract(self, image):
         if image.ndim == 3:
             image = normalize_image_shape(image)
