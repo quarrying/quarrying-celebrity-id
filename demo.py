@@ -1,6 +1,7 @@
 import glob
 
 import cv2
+import khandy
 import numpy as np
 
 from celebid import CelebrityIdentifier
@@ -35,7 +36,7 @@ def draw_landmarks(image, landmarks):
     
 if __name__ == '__main__':
     celeb_identifier = CelebrityIdentifier(min_size=40)
-    filenames = glob.glob('F:\_Data\Celebrity\chinese\politican_chinese\曾荫权 faces/*.jpg')
+    filenames = glob.glob('F:/_Data/Celebrity/chinese/star_chinese_H/何泓姗 faces/*.jpg')
     for k, filename in enumerate(filenames):
         image = imread_ex(filename, 1)
         if (image is None) or (image.dtype != np.uint8):
