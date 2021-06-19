@@ -1,5 +1,7 @@
 import os
+
 import cv2
+import khandy
 import numpy as np
 
 
@@ -23,55 +25,6 @@ def normalize_image_shape(image):
     else:
         raise ValueError('Unsupported!')
     return image
-    
-    
-def inflate_boxes_to_square(boxes, copy=True):
-    """
-    References:
-        `rerec` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
-    """
-    boxes = np.array(boxes, dtype=np.float32, copy=copy)
-
-    widths = boxes[:, 2] - boxes[:, 0]
-    heights = boxes[:, 3] - boxes[:, 1]
-    max_side_lengths = np.maximum(widths, heights)
-    
-    width_deltas = np.subtract(max_side_lengths, widths, widths)
-    height_deltas = np.subtract(max_side_lengths, heights, heights)
-    width_deltas *= 0.5
-    height_deltas *= 0.5
-    boxes[:, 0] -= width_deltas
-    boxes[:, 1] -= height_deltas
-    boxes[:, 2] += width_deltas
-    boxes[:, 3] += height_deltas
-    return boxes
-    
-
-def crop_or_pad_coords(boxes, image_width, image_height):
-    """
-    References:
-        `pad` in https://github.com/kpzhang93/MTCNN_face_detection_alignment
-    """
-    x_mins = boxes[:, 0]
-    y_mins = boxes[:, 1]
-    x_maxs = boxes[:, 2]
-    y_maxs = boxes[:, 3]
-    dst_widths = x_maxs - x_mins + 1
-    dst_heights = y_maxs - y_mins + 1
-
-    src_x_begin = np.maximum(x_mins, 0)
-    src_y_begin = np.maximum(y_mins, 0)
-    src_x_end = np.minimum(x_maxs + 1, image_width)
-    src_y_end = np.minimum(y_maxs + 1, image_height)
-    
-    dst_x_begin = np.maximum(-x_mins, 0)
-    dst_y_begin = np.maximum(-y_mins, 0)
-    dst_x_end = np.minimum(dst_widths, image_width - x_mins)
-    dst_y_end = np.minimum(dst_heights, image_height - y_mins)
-
-    return [dst_y_begin, dst_y_end, dst_x_begin, dst_x_end, 
-            src_y_begin, src_y_end, src_x_begin, src_x_end, 
-            dst_widths, dst_heights]
     
     
 def nms(boxes, threshold, type):
@@ -195,7 +148,8 @@ class MTCNN(object):
     def _crop_and_resize(image, dst_size, boxes):
         image_height, image_width = image.shape[:2]
         boxes = np.fix(boxes[:, :4]).astype(np.int32)
-        dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = crop_or_pad_coords(boxes, image_width, image_height)
+        dy, edy, dx, edx, y, ey, x, ex, tmph, tmpw = khandy.crop_or_pad_coords(boxes, image_width, image_height)
+        print(tmpw.dtype, tmpw.shape)
         outputs = np.empty((boxes.shape[0], dst_size, dst_size, 3), dtype=image.dtype)
         for k in range(boxes.shape[0]):
             tmp = np.zeros((tmph[k], tmpw[k], 3), dtype=image.dtype)
@@ -228,7 +182,7 @@ class MTCNN(object):
         pick = nms(boxes_ex, self.pnet_nms_thresh_inter, 'Union')
         boxes = self._decode_boxes(boxes_ex[pick, 5:], boxes_ex[pick, :4])
         boxes = np.concatenate((boxes, boxes_ex[pick, 4:5]), axis=1)
-        boxes = inflate_boxes_to_square(boxes)
+        boxes = khandy.inflate_boxes_to_square(boxes)
         return boxes
 
     def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
@@ -254,7 +208,7 @@ class MTCNN(object):
 
         pick = nms(boxes, self.rnet_nms_thresh, 'Union')
         boxes = self._decode_boxes(offsets[pick, :], boxes[pick, :])
-        boxes = inflate_boxes_to_square(boxes)
+        boxes = khandy.inflate_boxes_to_square(boxes)
         if boxes.shape[0] == 0:
             return boxes, landmarks
 

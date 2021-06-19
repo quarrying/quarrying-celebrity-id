@@ -6,39 +6,6 @@ import khandy
 import numpy as np
 
 
-def crop_or_pad(image, rect):
-    assert (image.ndim == 2) or (image.ndim == 3)
-    channels = 1 if image.ndim == 2 else image.shape[2]
-    x_min, y_min, x_max, y_max = rect
-    
-    src_height, src_width = image.shape[:2]
-    dst_height, dst_width = y_max - y_min + 1, x_max - x_min + 1
-
-    src_x_begin = x_min
-    src_y_begin = y_min
-    dst_x_begin = max(0, -src_x_begin)
-    dst_y_begin = max(0, -src_y_begin)
-    dst_x_end = min(dst_width, src_width - src_x_begin)
-    dst_y_end = min(dst_height, src_height - src_y_begin)
-
-    if image.ndim == 2: 
-        cropped_image_shape = (dst_height, dst_width)
-    else:
-        cropped_image_shape = (dst_height, dst_width, channels)
-    cropped = np.zeros(cropped_image_shape, image.dtype)
-    if (dst_x_end - dst_x_begin <= 0) or (dst_y_end - dst_y_begin <= 0):
-        return cropped
-    else:
-        src_x_begin = max(0, src_x_begin)
-        src_y_begin = max(0, src_y_begin)
-        src_end_x = src_x_begin + dst_x_end - dst_x_begin
-        src_end_y = src_y_begin + dst_y_end - dst_y_begin
-        cropped[dst_y_begin: dst_y_end, 
-                dst_x_begin: dst_x_end, ...] = \
-                image[src_y_begin: src_end_y, src_x_begin: src_end_x, ...]
-        return cropped
-        
-        
 def imread_ex(filename, flags=-1):
     """cv2.imread 的扩展, 使支持中文路径.
     """
@@ -162,7 +129,7 @@ def crop_faces(src_dir, detector, dst_dir_prefix=None,
                 stem, old_ext = os.path.splitext(os.path.basename(name))
                 zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
                 for k, scaled_rect in enumerate(scaled_rects):
-                    cropped = crop_or_pad(img, scaled_rect[:4])
+                    cropped = khandy.crop_or_pad(img, scaled_rect[0], scaled_rect[1], scaled_rect[2], scaled_rect[3])
             
                     ordinal_str = '{}'.format(k).zfill(zfill_width)
                     os.makedirs(dst_dir_face, exist_ok=True)
@@ -171,7 +138,7 @@ def crop_faces(src_dir, detector, dst_dir_prefix=None,
                     cv2.imencode(os.path.splitext(dst_filename)[-1], cropped)[1].tofile(dst_filename)
             else:
                 max_face_rect = max(scaled_rects, key=lambda rect: (rect[3] - rect[1]) * (rect[2] - rect[0]))
-                cropped = crop_or_pad(img, max_face_rect[:4])
+                cropped = khandy.crop_or_pad(img, max_face_rect[0], max_face_rect[1], max_face_rect[2], max_face_rect[3])
                 
                 os.makedirs(dst_dir_face, exist_ok=True)
                 dst_filename = os.path.join(dst_dir_face, os.path.basename(name))
@@ -225,7 +192,7 @@ def crop_faces_video(filename, detector, dst_dir=None,
                 scaled_rects = scaled_rects[keep]
                 face_zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
                 for k, scaled_rect in enumerate(scaled_rects):
-                    cropped = crop_or_pad(img, scaled_rect[:4])
+                    cropped = khandy.crop_or_pad(img, scaled_rect[0], scaled_rect[1], scaled_rect[2], scaled_rect[3])
                     
                     ordinal_str = '{}'.format(k).zfill(face_zfill_width)
                     dst_filename = os.path.join(dst_dir, '{}_{}.jpg'.format(frame_no_str, ordinal_str))
@@ -233,7 +200,7 @@ def crop_faces_video(filename, detector, dst_dir=None,
                     cv2.imencode(os.path.splitext(dst_filename)[-1], cropped)[1].tofile(dst_filename)
             else:
                 max_face_rect = max(scaled_rects, key=lambda rect: (rect[3] - rect[1]) * (rect[2] - rect[0]))
-                cropped = crop_or_pad(img, max_face_rect[:4])
+                cropped = khandy.crop_or_pad(img, max_face_rect[0], max_face_rect[1], max_face_rect[2], max_face_rect[3])
                 
                 dst_filename = os.path.join(dst_dir, '{}.jpg'.format(frame_no_str))
                 dst_filename = khandy.replace_path_extension(dst_filename, extname)
