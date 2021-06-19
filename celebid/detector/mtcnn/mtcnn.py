@@ -145,11 +145,10 @@ class MTCNN(object):
         return results.T
         
     @staticmethod
-    def _crop_and_resize(image, dst_size, boxes):
+    def _crop_and_resize(image, boxes, dst_size):
         image_height, image_width = image.shape[:2]
         boxes = np.fix(boxes[:, :4]).astype(np.int32)
         dy, edy, dx, edx, y, ey, x, ex, tmph, tmpw = khandy.crop_or_pad_coords(boxes, image_width, image_height)
-        print(tmpw.dtype, tmpw.shape)
         outputs = np.empty((boxes.shape[0], dst_size, dst_size, 3), dtype=image.dtype)
         for k in range(boxes.shape[0]):
             tmp = np.zeros((tmph[k], tmpw[k], 3), dtype=image.dtype)
@@ -196,7 +195,7 @@ class MTCNN(object):
             return boxes, landmarks
 
         # Second stage
-        rnet_input = self._crop_and_resize(image, 24, boxes)
+        rnet_input = self._crop_and_resize(image, boxes, 24)
         rnet_input = self._preprocess(rnet_input)
         self.rnet.setInput(rnet_input)
         out_prob1, out_conv5_2 = self.rnet.forward(['prob1', 'conv5-2'])
@@ -213,7 +212,7 @@ class MTCNN(object):
             return boxes, landmarks
 
         # Third stage
-        onet_input = self._crop_and_resize(image, 48, boxes)
+        onet_input = self._crop_and_resize(image, boxes, 48)
         onet_input = self._preprocess(onet_input)
         self.onet.setInput(onet_input)
         out_prob1, out_conv6_2, out_conv6_3 = self.onet.forward(['prob1', 'conv6-2', 'conv6-3'])
