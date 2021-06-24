@@ -23,9 +23,9 @@ def detect_align_and_extract(image, detector, extractor):
     face_boxes, face_landmarks = detector.detect(image)
     feature_dim = extractor.get_feature_dim()
     features = np.empty((len(face_landmarks), feature_dim), np.float32)
-    for k, face_landmark in enumerate(face_landmarks):
+    for i, face_landmark in enumerate(face_landmarks):
         aligned_face_image = extractor.align_and_crop(image, face_landmark)
-        features[k] = extractor.extract(aligned_face_image)
+        features[i] = extractor.extract(aligned_face_image)
     return face_boxes, face_landmarks, features
     
     
@@ -41,6 +41,10 @@ class CelebrityIdentifier(object):
         return self.gallery_labels
         
     def identify(self, image, k=5):
+        assert isinstance(k, int)
+        if k <= 0:
+            k = len(self.gallery_labels)
+        k = min(len(self.gallery_labels), k)
         face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
         labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
         return face_boxes, face_landmarks, labels, distances
