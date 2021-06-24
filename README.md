@@ -9,6 +9,9 @@
 - OpenCV 4.5+
 - [KHandy](https://github.com/quarrying/KHandy)
 
+## 效果示例
+![四大天王](data/example_image_1.png)
+
 ## 参考
 - https://github.com/kpzhang93/MTCNN_face_detection_alignment
 - https://github.com/TreB1eN/InsightFace_Pytorch
