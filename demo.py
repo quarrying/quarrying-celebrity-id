@@ -22,7 +22,7 @@ def draw_rectangles(image, boxes):
     y2 = boxes[:, 3]
     for i in range(x1.shape[0]):
         cv2.rectangle(image, (int(x1[i]), int(y1[i])), (int(x2[i]), int(y2[i])), 
-                      (0,255,0), 1)
+                      (0,255,0), 2)
     return image
     
     
@@ -42,8 +42,8 @@ if __name__ == '__main__':
         if (image is None) or (image.dtype != np.uint8):
             print('Image file corrupted!')
             continue
-        if min(image.shape[:2]) > 1280:
-            image = khandy.resize_image_short(image, 1280)
+        if min(image.shape[:2]) > 1920:
+            image = khandy.resize_image_short(image, 1920)
             
         face_boxes, face_landmarks, labels, distances = celeb_identifier.identify(image)
         print(labels, distances)
