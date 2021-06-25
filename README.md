@@ -5,9 +5,14 @@
 
 本项目的人脸检测算法和模型来自 [MTCNN_face_detection_alignment](https://github.com/kpzhang93/MTCNN_face_detection_alignment) , 人脸特征提取模型来自 [InsightFace_Pytorch](https://github.com/TreB1eN/InsightFace_Pytorch) . 
 
-## 依赖
-- OpenCV 4.5+
-- [KHandy](https://github.com/quarrying/KHandy)
+## 安装
+```
+git clone https://github.com/quarrying/quarrying-celebrity-id.git
+cd quarrying-celebrity-id
+conda create -n celebid python=3.6 -y
+conda activate celebid
+pip install -r requirements.txt
+```
 
 ## 效果示例
 ![四大天王](data/example_image_1.png)
