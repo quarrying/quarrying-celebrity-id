@@ -7,14 +7,9 @@ import numpy as np
 
 
 def imread_ex(filename, flags=-1):
-    """cv2.imread 的扩展, 使支持中文路径.
-    """
     try:
         return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), flags)
     except Exception as e:
-        # 当文件内容为空时, 可能会报出如下的错误
-        # cv2.error: OpenCV(4.0.0) error: (-215:Assertion failed) !buf.empty() 
-        # && buf.isContinuous() in function 'cv::imdecode_'
         print('Image decode error!', e)
         return None
         

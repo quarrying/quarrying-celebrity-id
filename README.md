@@ -14,6 +14,9 @@ conda activate celebid
 pip install -r requirements.txt
 ```
 
+## 用法
+参考 [demo.py](demo.py)
+
 ## 效果示例
 ![四大天王](data/example_image_1.png)
 
