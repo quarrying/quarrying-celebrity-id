@@ -20,6 +20,8 @@ pip install -r requirements.txt
 ## 效果示例
 ![四大天王](data/example_image_1.png)
 
+数值是欧氏距离, 越小越相似.
+
 ## 参考
 - https://github.com/kpzhang93/MTCNN_face_detection_alignment
 - https://github.com/TreB1eN/InsightFace_Pytorch
