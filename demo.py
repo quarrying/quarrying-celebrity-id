@@ -67,6 +67,7 @@ if __name__ == '__main__':
     celeb_identifier = CelebrityIdentifier(min_size=40)
     filenames = glob.glob('F:/_Data/Celebrity/chinese/star_chinese_H/何泓姗 faces/*.jpg')
     for k, filename in enumerate(filenames):
+        print('[{}/{}] {}'.format(k+1, len(filenames), filename))
         image = imread_ex(filename, 1)
         if (image is None) or (image.dtype != np.uint8):
             print('Image file corrupted!')
