@@ -8,6 +8,11 @@ from .extractor import FaceFeatureExtractor
 
 
 def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labels, k=5):
+    assert isinstance(k, int)
+    if k <= 0:
+        k = len(gallery_labels)
+    k = min(len(gallery_labels), k)
+    
     if probe_features.ndim == 1:
         probe_features = np.expand_dims(probe_features, 0)
     distances = khandy.pairwise_distances(probe_features, gallery_features)
@@ -41,10 +46,6 @@ class CelebrityIdentifier(object):
         return self.gallery_labels
         
     def identify(self, image, k=5):
-        assert isinstance(k, int)
-        if k <= 0:
-            k = len(self.gallery_labels)
-        k = min(len(self.gallery_labels), k)
         face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
         labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
         return face_boxes, face_landmarks, labels, distances

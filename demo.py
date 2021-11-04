@@ -72,12 +72,11 @@ if __name__ == '__main__':
         if (image is None) or (image.dtype != np.uint8):
             print('Image file corrupted!')
             continue
-        if min(image.shape[:2]) > 1920:
-            image = khandy.resize_image_short(image, 1920)
-            
         face_boxes, face_landmarks, labels, distances = celeb_identifier.identify(image)
         # print(labels, distances)
         
+        if min(image.shape[:2]) > 1080:
+            image = khandy.resize_image_short(image, 1080)
         image = draw_rectangles(image, face_boxes)
         image = draw_landmarks(image, face_landmarks)
         for face_box, label, distance in zip(face_boxes, labels, distances):

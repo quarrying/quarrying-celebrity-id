@@ -73,6 +73,7 @@ class FaceFeatureExtractor(object):
         image = self._preprocess(image)
         self.net.setInput(image)
         features = self.net.forward()
+        features = khandy.l2_normalize(features, axis=-1)
         return features
 
         
