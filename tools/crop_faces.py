@@ -18,35 +18,6 @@ def imwrite_ex(filename, image):
     cv2.imencode(os.path.splitext(filename)[-1], image)[1].tofile(filename)
     
     
-def py_cpu_nms(dets, scores, thresh):
-    """Pure Python NMS baseline."""
-    x1 = dets[:, 0]
-    y1 = dets[:, 1]
-    x2 = dets[:, 2]
-    y2 = dets[:, 3]
-
-    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-    order = scores.argsort()[::-1]
-
-    keep = []
-    while order.size > 0:
-        i = order[0]
-        keep.append(i)
-
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
-
-        w = np.maximum(0.0, xx2 - xx1 + 1)
-        h = np.maximum(0.0, yy2 - yy1 + 1)
-        inter = w * h
-        ovr = inter / (areas[i] + areas[order[1:]] - inter)
-        inds = np.where(ovr <= thresh)[0]
-        order = order[inds + 1]
-    return keep
-    
-    
 def clean_faces(src_dir, detector, dst_dir_prefix=None, min_face_size=30):
     """筛选出有人脸的图像 (保持文件原有内容)
     """
@@ -123,7 +94,7 @@ def crop_faces(src_dir, detector, dst_dir_prefix=None,
             scaled_rects = khandy.scale_boxes_wrt_centers(detected_rects, width_scale, height_scale)
             scaled_rects = scaled_rects.astype(np.int32)
             if not only_max_face:
-                keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
+                keep = khandy.non_max_suppression(scaled_rects, scaled_rects[:, 4], 0.4)
                 scaled_rects = scaled_rects[keep]
                 stem, old_ext = os.path.splitext(os.path.basename(name))
                 zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
@@ -187,7 +158,7 @@ def crop_faces_video(filename, detector, dst_dir=None,
             scaled_rects = khandy.scale_boxes_wrt_centers(detected_rects, width_scale, height_scale)
             scaled_rects = scaled_rects.astype(np.int32)
             if not only_max_face:
-                keep = py_cpu_nms(scaled_rects, scaled_rects[:, 4], 0.4)
+                keep = khandy.non_max_suppression(scaled_rects, scaled_rects[:, 4], 0.4)
                 scaled_rects = scaled_rects[keep]
                 face_zfill_width = khandy.get_order_of_magnitude(len(scaled_rects)) + 1
                 for k, scaled_rect in enumerate(scaled_rects):
