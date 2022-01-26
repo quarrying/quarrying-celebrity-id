@@ -3,10 +3,6 @@ import glob
 import cv2
 import khandy
 import numpy as np
-import PIL
-from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageFont
 
 from celebid import CelebrityIdentifier
 
@@ -38,31 +34,6 @@ def draw_landmarks(image, landmarks):
     return image
     
     
-def draw_text(image, text, position, font_size=15, color=(255,0,0),
-              font_filename='data/simsun.ttc'):
-    assert isinstance(color, (tuple, list)) and len(color) == 3
-    gray = color[0]
-    if isinstance(image, np.ndarray):
-        pil_image = Image.fromarray(image)
-        color = (color[2], color[1], color[0])
-    elif isinstance(image, PIL.Image.Image):
-        pil_image = image
-    else:
-        raise ValueError('Unsupported image type!')
-    assert pil_image.mode in ['L', 'RGB']
-    if pil_image.mode == 'L':
-        color = gray
-
-    font_object = ImageFont.truetype(font_filename, size=font_size)
-    drawable = ImageDraw.Draw(pil_image)
-    drawable.text((position[0], position[1]), text, 
-                  fill=color, font=font_object)
-
-    if isinstance(image, np.ndarray):
-        return np.asarray(pil_image)
-    return pil_image
-
-
 if __name__ == '__main__':
     celeb_identifier = CelebrityIdentifier(min_size=40)
     filenames = glob.glob('F:/_Data/Celebrity/chinese/star_chinese_H/何泓姗 faces/*.jpg')
@@ -82,8 +53,8 @@ if __name__ == '__main__':
         for face_box, label, distance in zip(face_boxes, labels, distances):
             text = '{}: {:.3f}'.format(label[0], distance[0])
             position = (int(face_box[0] + 2), int(face_box[1] - 20))
-            image = draw_text(image, text, position)
-            
+            image = khandy.draw_text(image, text, position, font='simsun.ttc', font_size=15)
+
         cv2.imshow('image', image)
         key = cv2.waitKey(0)
         if key == 27:
