@@ -18,7 +18,7 @@ def imwrite_ex(filename, image):
     cv2.imencode(os.path.splitext(filename)[-1], image)[1].tofile(filename)
     
     
-def clean_faces(src_dir, detector, dst_dir_prefix=None, min_face_size=30):
+def clean_faces(detector, src_dir, dst_dir_prefix=None, min_face_size=30):
     """筛选出有人脸的图像 (保持文件原有内容)
     """
     src_dir = os.path.normpath(src_dir)
@@ -62,7 +62,7 @@ def clean_faces(src_dir, detector, dst_dir_prefix=None, min_face_size=30):
     return src_dir
     
 
-def crop_faces(src_dir, detector, dst_dir_prefix=None,
+def crop_faces(detector, src_dir, dst_dir_prefix=None,
                width_scale=2.5, height_scale=2.5,
                extname='.jpg', only_max_face=False):
     """输入文件夹, 检测人脸并将之裁剪为大头照 (没有对齐)
@@ -120,7 +120,7 @@ def crop_faces(src_dir, detector, dst_dir_prefix=None,
     return dst_dir_face
 
 
-def crop_faces_video(filename, detector, dst_dir=None, 
+def crop_faces_video(detector, filename, dst_dir=None, 
                      sample_rate=1, width_scale=2.5, height_scale=2.5,
                      extname='.jpg', only_max_face=False):
     """输入视频文件, 检测人脸并将之裁剪为大头照 (没有对齐)
