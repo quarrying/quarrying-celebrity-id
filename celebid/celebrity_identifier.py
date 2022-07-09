@@ -24,29 +24,31 @@ def get_topk_labels_and_distances(probe_features, gallery_features, gallery_labe
     return topk_labels, topk_distances
     
 
-def detect_align_and_extract(image, detector, extractor):
-    face_boxes, face_landmarks = detector.detect(image)
-    feature_dim = extractor.get_feature_dim()
-    features = np.empty((len(face_landmarks), feature_dim), np.float32)
-    for i, face_landmark in enumerate(face_landmarks):
-        aligned_face_image = extractor.align_and_crop(image, face_landmark)
-        features[i] = extractor.extract(aligned_face_image)
-    return face_boxes, face_landmarks, features
-    
-    
 class CelebrityIdentifier(object):
-    def __init__(self, min_size=40):
+    def __init__(self, size_thresh=40, conf_thresh=0.5, nms_thresh=0.5):
+        self.size_thresh = size_thresh
+        self.conf_thresh = conf_thresh
+        self.nms_thresh = nms_thresh
         curr_dir = os.path.dirname(__file__)
         gallery_feature_dict = np.load(os.path.join(curr_dir, 'celebrity_features.npy'), allow_pickle=True).item()
         self.gallery_labels, self.gallery_features = khandy.convert_feature_dict_to_array(gallery_feature_dict)
-        self.detector = FaceDetector(min_size=min_size)
+        self.detector = FaceDetector()
         self.extractor = FaceFeatureExtractor()
         
     def get_celebrity_names(self):
         return self.gallery_labels
         
+    def detect_align_and_extract(self, image):
+        face_boxes, face_scores, face_landmarks = self.detector.detect(image, self.conf_thresh,self.nms_thresh, self.size_thresh)
+        feature_dim = self.extractor.get_feature_dim()
+        features = np.empty((len(face_landmarks), feature_dim), np.float32)
+        for i, face_landmark in enumerate(face_landmarks):
+            aligned_face_image = self.extractor.align_and_crop(image, face_landmark)
+            features[i] = self. extractor.extract(aligned_face_image)
+        return face_boxes, face_scores, face_landmarks, features
+
     def identify(self, image, k=5):
-        face_boxes, face_landmarks, features = detect_align_and_extract(image, self.detector, self.extractor)
+        face_boxes, face_scores, face_landmarks, features = self.detect_align_and_extract(image)
         labels, distances = get_topk_labels_and_distances(features, self.gallery_features, self.gallery_labels, k)
         return face_boxes, face_landmarks, labels, distances
         

@@ -3,7 +3,7 @@
 
 目前可识别 5065 个公众人物, 包括歌星, 演员, 运动员和政要等, 支持名单在不断更新中.
 
-本项目的人脸检测算法和模型来自 [MTCNN_face_detection_alignment](https://github.com/kpzhang93/MTCNN_face_detection_alignment) , 人脸特征提取模型来自 [InsightFace_Pytorch](https://github.com/TreB1eN/InsightFace_Pytorch) . 
+本项目的人脸检测算法和模型来自 [Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) , 人脸特征提取模型来自 [InsightFace_Pytorch](https://github.com/TreB1eN/InsightFace_Pytorch) . 
 
 ## 安装
 ```
@@ -26,5 +26,5 @@ pip install -r requirements.txt
 - 20210615 发布开源项目, 支持 4692 个名人人脸识别.
 
 ## 参考
-- https://github.com/kpzhang93/MTCNN_face_detection_alignment
+- https://github.com/biubug6/Pytorch_Retinaface
 - https://github.com/TreB1eN/InsightFace_Pytorch

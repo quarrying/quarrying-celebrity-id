@@ -19,15 +19,14 @@ def draw_rectangles(image, boxes):
     
     
 def draw_landmarks(image, landmarks):
-    num_landmarks = landmarks.shape[1] // 2
     for i, landmark in enumerate(landmarks):
-        for x, y in zip(landmark[:num_landmarks], landmark[num_landmarks:]):
+        for x, y in landmark:
             cv2.circle(image, (int(x), int(y)), 1, (0,255,0), -1, 8)
     return image
     
     
 if __name__ == '__main__':
-    celeb_identifier = CelebrityIdentifier(min_size=40)
+    celeb_identifier = CelebrityIdentifier(size_thresh=40)
     filenames = khandy.get_all_filenames('images')
     for k, filename in enumerate(filenames):
         print('[{}/{}] {}'.format(k+1, len(filenames), filename))
@@ -38,8 +37,7 @@ if __name__ == '__main__':
         start_time = time.time()
         face_boxes, face_landmarks, labels, distances = celeb_identifier.identify(image)
         print('Elapsed: {:.3f}s'.format(time.time() - start_time))
-        # print(labels, distances)
-        
+
         if min(image.shape[:2]) > 1080:
             image = khandy.resize_image_short(image, 1080)
         image = draw_rectangles(image, face_boxes)

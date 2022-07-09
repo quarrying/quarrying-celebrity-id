@@ -4,20 +4,25 @@ import cv2
 import khandy
 import numpy as np
 
+from .base import OnnxModel
 
-class FaceFeatureExtractor(object):
+
+class FaceFeatureExtractor(OnnxModel):
     def __init__(self, model_filename=None):
         if model_filename is None:
             model_filename = os.path.join(os.path.dirname(__file__), 'models/model_ir_se50.onnx')
-        self.model_filename = model_filename
-        self.net = cv2.dnn.readNetFromONNX(model_filename)
+        super(FaceFeatureExtractor, self).__init__(model_filename)
         self.align_size = self.get_align_size()
         self.reference_landmarks = self.get_reference_landmarks()
         
     @staticmethod
     def get_align_size():
         return (112, 112)
-        
+
+    @staticmethod
+    def get_feature_dim():
+        return 512
+
     @staticmethod
     def get_reference_landmarks():
         # adapted from 112x96 standard landmarks
@@ -29,7 +34,6 @@ class FaceFeatureExtractor(object):
         return std_landmarks
         
     def align_and_crop(self, image, landmarks):
-        landmarks = np.asarray(landmarks).reshape(2, 5).T
         image_cropped, _ = khandy.align_and_crop(image, landmarks, 
                                                  self.reference_landmarks, 
                                                  self.align_size)
@@ -43,17 +47,12 @@ class FaceFeatureExtractor(object):
         images = np.transpose(images, (0, 3, 1, 2))
         return images
         
-    @staticmethod
-    def get_feature_dim():
-        return 512
-
     def extract(self, image):
         if image.ndim == 3:
             image = khandy.normalize_image_shape(image, swap_rb=True)
             image = np.expand_dims(image, axis=0)
         image = self._preprocess(image)
-        self.net.setInput(image)
-        features = self.net.forward()
+        features = self.forward(image)
         features = khandy.l2_normalize(features, axis=-1)
         return features
 
