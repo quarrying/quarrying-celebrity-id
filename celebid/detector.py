@@ -20,7 +20,7 @@ class FaceDetector(OnnxModel):
                              [64,64, 128,128], 
                              [256,256, 512,512]]
         self.strides = [8, 16, 32]
-        self.priors = self.generate_priors((self.input_height, self.input_width), self.anchor_sizes, self.strides)
+        self.priors = self.generate_priors(self.input_height, self.input_width, self.anchor_sizes, self.strides)
         
     @staticmethod
     def generate_grid_anchors(fmap_size, anchor_sizes, stride):
@@ -53,17 +53,16 @@ class FaceDetector(OnnxModel):
         return all_anchors
 
     @staticmethod
-    def generate_priors(image_size, anchor_sizes, strides):
-        image_height, image_width = image_size
+    def generate_priors(image_height, image_width, anchor_sizes, strides):
         anchors = []
         for k in range(len(anchor_sizes)):
             fmap_size = [(image_height + strides[k] - 1) // strides[k], 
                          (image_width + strides[k] - 1) // strides[k]]
             anchors.append(FaceDetector.generate_grid_anchors(fmap_size, anchor_sizes[k], strides[k]))
-        priorbox = np.vstack(anchors)
+        prior_boxes = np.vstack(anchors)
         # 注意有除以宽高
-        priorbox /= np.array([image_width, image_height, image_width, image_height])
-        return priorbox
+        prior_boxes /= np.array([image_width, image_height, image_width, image_height])
+        return prior_boxes
 
     @staticmethod
     def decode_boxes(rel_boxes, reference_boxes, stddevs):
@@ -74,11 +73,11 @@ class FaceDetector(OnnxModel):
         return boxes
         
     @staticmethod
-    def decode_landmarks(rel_landmarks, priors, stddevs):
+    def decode_landmarks(rel_landmarks, reference_boxes, stddevs):
         batch_size, num_anchors = rel_landmarks.shape[:2]
-        priors = priors.reshape(1, num_anchors, 1, -1)
+        reference_boxes = reference_boxes.reshape(1, num_anchors, 1, -1)
         rel_landmarks = rel_landmarks.reshape(batch_size, num_anchors, -1, 2)
-        landmarks = priors[..., 0:2] + rel_landmarks * stddevs[0:2] * priors[..., 2:4]
+        landmarks = reference_boxes[..., 0:2] + rel_landmarks * stddevs[0:2] * reference_boxes[..., 2:4]
         return landmarks
 
     def preprocess(self, image):
@@ -140,7 +139,7 @@ class FaceDetector(OnnxModel):
         landmarks = landmarks[keep]
         return boxes, scores, landmarks
 
-    def detect(self, image, conf_thresh, nms_thresh, size_thresh=30, top_k=None):
+    def detect(self, image, conf_thresh=0.5, nms_thresh=0.5, size_thresh=30, top_k=None):
         img, scale, left, top = self.preprocess(image)
         # pred_boxes shape:     (batch_size, num_anchors, 4) 
         # classes shape:        (batch_size, num_anchors, 2) 
