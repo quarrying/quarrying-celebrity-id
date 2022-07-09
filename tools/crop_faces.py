@@ -30,7 +30,7 @@ def clean_faces(detector, src_dir, dst_dir_prefix=None, min_face_size=30):
             continue
         image_height, image_width = img.shape[:2]
         
-        detected_rects, _ = detector.detect(img)
+        detected_rects, _, _ = detector.detect(img)
         max_face_size_str = ''
         if len(detected_rects) == 0: 
             khandy.move_file(name, dst_dir_nonface)
@@ -75,7 +75,7 @@ def crop_faces(detector, src_dir, dst_dir_prefix=None,
             khandy.move_file(name, dst_dir_corrupt)
             continue
 
-        detected_rects, _ = detector.detect(img)
+        detected_rects, _, _ = detector.detect(img)
         if len(detected_rects) == 0:
             khandy.move_file(name, dst_dir_nonface)
         else:
@@ -140,7 +140,7 @@ def crop_faces_video(detector, filename, dst_dir=None,
             continue
             
         frame_no_str = '{}'.format(frame_no).zfill(frame_zfill_width)
-        detected_rects, _ = detector.detect(img)
+        detected_rects, _, _ = detector.detect(img)
 
         if len(detected_rects) != 0:
             scaled_rects = khandy.scale_boxes_wrt_centers(detected_rects, width_scale, height_scale)

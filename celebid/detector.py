@@ -8,11 +8,15 @@ from .base import OnnxModel
 
 
 class FaceDetector(OnnxModel):
-    def __init__(self, model_filename=None):
+    def __init__(self, model_filename=None, conf_thresh=0.5, nms_thresh=0.5, size_thresh=30, top_k=None):
         if model_filename is None:
             model_filename = os.path.join(os.path.dirname(__file__), 'models/retinaface.onnx')
         super(FaceDetector, self).__init__(model_filename)
-
+        self._conf_thresh = conf_thresh
+        self._nms_thresh = nms_thresh
+        self._size_thresh = size_thresh
+        self._top_k = top_k
+        
         self.input_width = 512
         self.input_height = 512
         self.stddevs = [0.1, 0.1, 0.2, 0.2]
@@ -21,6 +25,38 @@ class FaceDetector(OnnxModel):
                              [256,256, 512,512]]
         self.strides = [8, 16, 32]
         self.priors = self.generate_priors(self.input_height, self.input_width, self.anchor_sizes, self.strides)
+
+    @property
+    def conf_thresh(self):
+        return self._conf_thresh
+        
+    @conf_thresh.setter
+    def conf_thresh(self, value):
+        self._conf_thresh = value
+        
+    @property
+    def nms_thresh(self):
+        return self._nms_thresh
+        
+    @nms_thresh.setter
+    def nms_thresh(self, value):
+        self._nms_thresh = value
+        
+    @property
+    def size_thresh(self):
+        return self._size_thresh
+        
+    @size_thresh.setter
+    def size_thresh(self, value):
+        self._size_thresh = value
+
+    @property
+    def top_k(self):
+        return self._top_k
+        
+    @top_k.setter
+    def top_k(self, value):
+        self._top_k = value
         
     @staticmethod
     def generate_grid_anchors(fmap_size, anchor_sizes, stride):
@@ -139,17 +175,17 @@ class FaceDetector(OnnxModel):
         landmarks = landmarks[keep]
         return boxes, scores, landmarks
 
-    def detect(self, image, conf_thresh=0.5, nms_thresh=0.5, size_thresh=30, top_k=None):
-        img, scale, left, top = self.preprocess(image)
+    def detect(self, image):
+        image, scale, left, top = self.preprocess(image)
         # pred_boxes shape:     (batch_size, num_anchors, 4) 
         # classes shape:        (batch_size, num_anchors, 2) 
         # pred_landmarks shape: (batch_size, num_anchors, 10) 
-        pred_boxes, classes, pred_landmarks = self.forward(img)
+        pred_boxes, classes, pred_landmarks = self.forward(image)
 
         boxes, scores, landmarks = self.postprocess(
             pred_boxes, classes, pred_landmarks, 
             scale=scale, left=left, top=top,
-            conf_thresh=conf_thresh, nms_thresh=nms_thresh, 
-            size_thresh=size_thresh, top_k=top_k)
+            conf_thresh=self.conf_thresh, nms_thresh=self.nms_thresh, 
+            size_thresh=self.size_thresh, top_k=self.top_k)
         return boxes, scores, landmarks
 
