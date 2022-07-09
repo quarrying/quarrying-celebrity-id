@@ -5,24 +5,6 @@ import khandy
 import numpy as np
 
 
-def normalize_image_shape(image):
-    if image.ndim == 2:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    elif image.ndim == 3:
-        num_channels = image.shape[-1]
-        if num_channels == 1:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        elif num_channels == 3:
-            pass
-        elif num_channels == 4:
-            image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
-        else:
-            raise ValueError('Unsupported!')
-    else:
-        raise ValueError('Unsupported!')
-    return image
-    
-    
 def nms(boxes, threshold, type):
     """
     References:
@@ -181,9 +163,8 @@ class MTCNN(object):
         return boxes
 
     def detect(self, image, min_size=20, conf_thresholds=[0.6, 0.7, 0.7], factor=0.709):
-        image = normalize_image_shape(image)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
+        image = khandy.normalize_image_shape(image, swap_rb=True)
+
         # First stage
         landmarks = np.empty((0, 10), np.float32)
         boxes = self._run_first_stage(image, min_size, conf_thresholds[0], factor)

@@ -1,4 +1,4 @@
-import glob
+import time
 
 import cv2
 import khandy
@@ -7,14 +7,6 @@ import numpy as np
 from celebid import CelebrityIdentifier
 
 
-def imread_ex(filename, flags=-1):
-    try:
-        return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), flags)
-    except Exception as e:
-        print('Image decode error!', e)
-        return None
-        
-        
 def draw_rectangles(image, boxes):
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
@@ -36,14 +28,16 @@ def draw_landmarks(image, landmarks):
     
 if __name__ == '__main__':
     celeb_identifier = CelebrityIdentifier(min_size=40)
-    filenames = glob.glob('F:/_Data/Celebrity/chinese/star_chinese_H/何泓姗 faces/*.jpg')
+    filenames = khandy.get_all_filenames('images')
     for k, filename in enumerate(filenames):
         print('[{}/{}] {}'.format(k+1, len(filenames), filename))
-        image = imread_ex(filename, 1)
+        image = khandy.imread_cv(filename, 1)
         if (image is None) or (image.dtype != np.uint8):
             print('Image file corrupted!')
             continue
+        start_time = time.time()
         face_boxes, face_landmarks, labels, distances = celeb_identifier.identify(image)
+        print('Elapsed: {:.3f}s'.format(time.time() - start_time))
         # print(labels, distances)
         
         if min(image.shape[:2]) > 1080:

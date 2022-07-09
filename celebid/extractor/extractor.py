@@ -5,24 +5,6 @@ import khandy
 import numpy as np
 
 
-def normalize_image_shape(image):
-    if image.ndim == 2:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    elif image.ndim == 3:
-        num_channels = image.shape[-1]
-        if num_channels == 1:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-        elif num_channels == 3:
-            pass
-        elif num_channels == 4:
-            image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
-        else:
-            raise ValueError('Unsupported!')
-    else:
-        raise ValueError('Unsupported!')
-    return image
-    
-    
 class FaceFeatureExtractor(object):
     def __init__(self, model_filename=None):
         if model_filename is None:
@@ -67,8 +49,7 @@ class FaceFeatureExtractor(object):
 
     def extract(self, image):
         if image.ndim == 3:
-            image = normalize_image_shape(image)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = khandy.normalize_image_shape(image, swap_rb=True)
             image = np.expand_dims(image, axis=0)
         image = self._preprocess(image)
         self.net.setInput(image)

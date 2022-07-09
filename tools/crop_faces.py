@@ -6,18 +6,6 @@ import khandy
 import numpy as np
 
 
-def imread_ex(filename, flags=-1):
-    try:
-        return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), flags)
-    except Exception as e:
-        print('Image decode error!', e)
-        return None
-        
-
-def imwrite_ex(filename, image):
-    cv2.imencode(os.path.splitext(filename)[-1], image)[1].tofile(filename)
-    
-    
 def clean_faces(detector, src_dir, dst_dir_prefix=None, min_face_size=30):
     """筛选出有人脸的图像 (保持文件原有内容)
     """
@@ -35,7 +23,7 @@ def clean_faces(detector, src_dir, dst_dir_prefix=None, min_face_size=30):
         print('[{}/{}] {}'.format(k+1, len(filenames), name))
         start_time = time.time()
         
-        img = imread_ex(name, 1)
+        img = khandy.imread_cv(name, 1)
         if (img is None) or (img.dtype != np.uint8):
             print('Image file corrupted!')
             khandy.move_file(name, dst_dir_corrupt)
@@ -81,7 +69,7 @@ def crop_faces(detector, src_dir, dst_dir_prefix=None,
         print('[{}/{}] {}'.format(k+1, len(filenames), name))
         start_time = time.time()
 
-        img = imread_ex(name, -1)
+        img = khandy.imread_cv(name, -1)
         if (img is None) or (img.dtype != np.uint8):
             print('Image file corrupted!')
             khandy.move_file(name, dst_dir_corrupt)
@@ -105,7 +93,7 @@ def crop_faces(detector, src_dir, dst_dir_prefix=None,
                     os.makedirs(dst_dir_face, exist_ok=True)
                     dst_filename = os.path.join(dst_dir_face, '{}_{}{}'.format(stem, ordinal_str, old_ext))
                     dst_filename = khandy.replace_path_extension(dst_filename, extname)
-                    imwrite_ex(dst_filename, cropped)
+                    khandy.imwrite_cv(dst_filename, cropped)
             else:
                 max_face_rect = max(scaled_rects, key=lambda rect: (rect[3] - rect[1]) * (rect[2] - rect[0]))
                 cropped = khandy.crop_or_pad(img, max_face_rect[0], max_face_rect[1], max_face_rect[2], max_face_rect[3])
@@ -113,7 +101,7 @@ def crop_faces(detector, src_dir, dst_dir_prefix=None,
                 os.makedirs(dst_dir_face, exist_ok=True)
                 dst_filename = os.path.join(dst_dir_face, os.path.basename(name))
                 dst_filename = khandy.replace_path_extension(dst_filename, extname)
-                imwrite_ex(dst_filename, cropped)
+                khandy.imwrite_cv(dst_filename, cropped)
                 
         print('Elapsed: {:.3f}s. Image Size: {}. Detected Face Number: {}'.format(
               time.time() - start_time, img.shape[:2], len(detected_rects)))
@@ -167,14 +155,14 @@ def crop_faces_video(detector, filename, dst_dir=None,
                     ordinal_str = '{}'.format(k).zfill(face_zfill_width)
                     dst_filename = os.path.join(dst_dir, '{}_{}.jpg'.format(frame_no_str, ordinal_str))
                     dst_filename = khandy.replace_path_extension(dst_filename, extname)
-                    imwrite_ex(dst_filename, cropped)
+                    khandy.imwrite_cv(dst_filename, cropped)
             else:
                 max_face_rect = max(scaled_rects, key=lambda rect: (rect[3] - rect[1]) * (rect[2] - rect[0]))
                 cropped = khandy.crop_or_pad(img, max_face_rect[0], max_face_rect[1], max_face_rect[2], max_face_rect[3])
                 
                 dst_filename = os.path.join(dst_dir, '{}.jpg'.format(frame_no_str))
                 dst_filename = khandy.replace_path_extension(dst_filename, extname)
-                imwrite_ex(dst_filename, cropped)
+                khandy.imwrite_cv(dst_filename, cropped)
             
         print('[{}/{}] Elapsed: {:.3f}s, Detected Face Number: {}'.format(
               frame_no_str, frame_count, time.time() - start_time, len(detected_rects)))
