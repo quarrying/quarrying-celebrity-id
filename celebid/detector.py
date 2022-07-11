@@ -25,6 +25,7 @@ class FaceDetector(OnnxModel):
                              [256,256, 512,512]]
         self.strides = [8, 16, 32]
         self.priors = self.generate_priors(self.input_height, self.input_width, self.anchor_sizes, self.strides)
+        self.boxes_coder = khandy.FasterRcnnBoxCoder(self.stddevs)
 
     @property
     def conf_thresh(self):
@@ -100,46 +101,29 @@ class FaceDetector(OnnxModel):
         prior_boxes /= np.array([image_width, image_height, image_width, image_height])
         return prior_boxes
 
-    @staticmethod
-    def decode_boxes(rel_boxes, reference_boxes, stddevs):
-        reference_boxes = np.expand_dims(reference_boxes, 0)
-        xcenters_ycenters = reference_boxes[..., 0:2] + rel_boxes[..., 0:2] * stddevs[0:2] * reference_boxes[..., 2:4]
-        widths_heights = reference_boxes[..., 2:4] * np.exp(rel_boxes[..., 2:4] * stddevs[2:4])
-        boxes = np.concatenate((xcenters_ycenters, widths_heights), -1)
-        return boxes
-        
-    @staticmethod
-    def decode_landmarks(rel_landmarks, reference_boxes, stddevs):
-        batch_size, num_anchors = rel_landmarks.shape[:2]
-        reference_boxes = reference_boxes.reshape(1, num_anchors, 1, -1)
-        rel_landmarks = rel_landmarks.reshape(batch_size, num_anchors, -1, 2)
-        landmarks = reference_boxes[..., 0:2] + rel_landmarks * stddevs[0:2] * reference_boxes[..., 2:4]
-        return landmarks
-
     def preprocess(self, image):
         image_dtype = image.dtype
         assert image_dtype in [np.uint8, np.uint16]
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        image, scale, left, top = khandy.letterbox_resize_image(
+        image, scale, pad_left, pad_top = khandy.letterbox_resize_image(
             image, self.input_width, self.input_height, return_scale=True)
         image = image.astype(np.float32)
         image = image.transpose(2, 0, 1)
         image = np.expand_dims(image, axis=0)
-        return image, scale, left, top
+        return image, scale, pad_left, pad_top
 
-    def postprocess(self, pred_boxes, classes, pred_landmarks, scale, left, top, 
+    def postprocess(self, pred_boxes, classes, pred_landmarks, scale, pad_left, pad_top, 
                     conf_thresh, nms_thresh, size_thresh, top_k):
-        boxes = self.decode_boxes(pred_boxes, self.priors, self.stddevs)
+        boxes = self.boxes_coder.decode(pred_boxes, self.priors, False)
         boxes = khandy.convert_boxes_format(boxes, 'cxcywh', 'xyxy', False)
-        boxes[..., 0] = (boxes[..., 0] * self.input_width - left) / scale
-        boxes[..., 1] = (boxes[..., 1] * self.input_height - top) / scale
-        boxes[..., 2] = (boxes[..., 2] * self.input_width - left) / scale
-        boxes[..., 3] = (boxes[..., 3] * self.input_height - top) / scale
-        
-        landmarks = self.decode_landmarks(pred_landmarks, self.priors, self.stddevs)
-        landmarks[..., 0] = (landmarks[..., 0] * self.input_width - left) / scale
-        landmarks[..., 1] = (landmarks[..., 1] * self.input_height - top) / scale
+        boxes = khandy.scale_2d_points(boxes, self.input_width, self.input_height, False)
+        boxes = khandy.unletterbox_2d_points(boxes, scale, pad_left, pad_top, False)
+
+        landmarks = self.boxes_coder.decode_points(pred_landmarks, self.priors, False)
+        landmarks = khandy.scale_2d_points(landmarks, self.input_width, self.input_height, False)
+        landmarks = khandy.unletterbox_2d_points(landmarks, scale, pad_left, pad_top, False)
+        landmarks = landmarks.reshape(*pred_landmarks.shape[:2], -1, 2)
 
         boxes = boxes.squeeze(0)
         landmarks = landmarks.squeeze(0)
@@ -161,7 +145,7 @@ class FaceDetector(OnnxModel):
             landmarks = landmarks[indexs]
             scores = scores[indexs]
         
-        # keep top-k before NMS
+        # keep pad_top-k before NMS
         if top_k is not None:
             order = scores.argsort()[::-1][:top_k]
             boxes = boxes[order]
@@ -176,7 +160,7 @@ class FaceDetector(OnnxModel):
         return boxes, scores, landmarks
 
     def detect(self, image):
-        image, scale, left, top = self.preprocess(image)
+        image, scale, pad_left, pad_top = self.preprocess(image)
         # pred_boxes shape:     (batch_size, num_anchors, 4) 
         # classes shape:        (batch_size, num_anchors, 2) 
         # pred_landmarks shape: (batch_size, num_anchors, 10) 
@@ -184,7 +168,7 @@ class FaceDetector(OnnxModel):
 
         boxes, scores, landmarks = self.postprocess(
             pred_boxes, classes, pred_landmarks, 
-            scale=scale, left=left, top=top,
+            scale=scale, pad_left=pad_left, pad_top=pad_top,
             conf_thresh=self.conf_thresh, nms_thresh=self.nms_thresh, 
             size_thresh=self.size_thresh, top_k=self.top_k)
         return boxes, scores, landmarks

@@ -28,6 +28,7 @@ def draw_landmarks(image, landmarks):
 if __name__ == '__main__':
     celeb_identifier = CelebrityIdentifier(size_thresh=40)
     filenames = khandy.get_all_filenames('images')
+    filenames += khandy.get_all_filenames(r'G:\Human\Celebrity\_gallery\astronaut_chinese')
     for k, filename in enumerate(filenames):
         print('[{}/{}] {}'.format(k+1, len(filenames), filename))
         image = khandy.imread_cv(filename, 1)
