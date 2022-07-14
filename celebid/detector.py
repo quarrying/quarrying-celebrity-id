@@ -70,14 +70,14 @@ class FaceDetector(OnnxModel):
         # xx_centers shape is (fmap_height, fmap_width)
         # yy_centers shape is (fmap_height, fmap_width)
         xx_centers, yy_centers = np.meshgrid(x_centers, y_centers)
-        # centers shape is (2, K), where K=fmap_height*fmap_width
+        # centers shape is (2, K), where K = fmap_height * fmap_width
         centers = np.vstack([xx_centers.flat, yy_centers.flat])
         # Shape is (K, 2)
         centers = centers.transpose()
         # Shape is (K, 1, 2)
         centers = centers.reshape((-1, 1, 2))
         
-        # Shape is (Ax2,)
+        # Shape is (Ax2,), where A is num_base_anchors
         anchor_sizes = np.asarray(anchor_sizes)
         # Shape is (1, A, 2)
         anchor_sizes = anchor_sizes.reshape((1, -1, 2))
@@ -97,7 +97,7 @@ class FaceDetector(OnnxModel):
                          (image_width + strides[k] - 1) // strides[k]]
             anchors.append(FaceDetector.generate_grid_anchors(fmap_size, anchor_sizes[k], strides[k]))
         prior_boxes = np.vstack(anchors)
-        # 注意有除以宽高
+        # NB: divided by image_width or image_height
         prior_boxes /= np.array([image_width, image_height, image_width, image_height])
         return prior_boxes
 
