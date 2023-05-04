@@ -59,7 +59,7 @@ class CelebrityIdentifier(object):
 
     def identify(self, image, k=5):
         face_boxes, face_scores, face_landmarks, features = self.detect_align_and_extract(image)
-        distances, indices  = get_topk(features, self.gallery_features, k)
+        distances, indices = get_topk(features, self.gallery_features, k)
         labels = translate_labels(indices, self.gallery_labels)
         return face_boxes, face_landmarks, labels, distances
         

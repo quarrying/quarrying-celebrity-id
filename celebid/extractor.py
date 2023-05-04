@@ -47,13 +47,17 @@ class FaceFeatureExtractor(OnnxModel):
         images = np.transpose(images, (0, 3, 1, 2))
         return images
         
-    def extract(self, image):
+    def extract(self, image, use_flip=False):
         if image.ndim == 3:
             image = khandy.normalize_image_shape(image, swap_rb=True)
             image = np.expand_dims(image, axis=0)
         image = self._preprocess(image)
         features = self.forward(image)
-        features = khandy.l2_normalize(features, axis=-1)
+        if use_flip:
+            features_lr = self.forward(image[...,::-1])
+            features = khandy.l2_normalize(features + features_lr, axis=-1)
+        else:
+            features = khandy.l2_normalize(features, axis=-1)
         return features
 
         
