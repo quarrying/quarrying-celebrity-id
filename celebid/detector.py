@@ -5,6 +5,7 @@ import khandy
 import numpy as np
 
 from .base import OnnxModel
+from .base import check_image_dtype_and_shape
 
 
 class FaceDetector(OnnxModel):
@@ -102,13 +103,19 @@ class FaceDetector(OnnxModel):
         return prior_boxes
 
     def preprocess(self, image):
-        image_dtype = image.dtype
-        assert image_dtype in [np.uint8, np.uint16]
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        check_image_dtype_and_shape(image)
 
+        # image size normalization
         image, scale, pad_left, pad_top = khandy.letterbox_resize_image(
             image, self.input_width, self.input_height, return_scale=True)
+        # image channel normalization
+        image = khandy.normalize_image_channel(image, swap_rb=True)
+        # image dtype normalization
+        image_dtype = image.dtype
         image = image.astype(np.float32)
+        if image_dtype == np.uint16:
+            image /= 255.0
+        # to tensor
         image = image.transpose(2, 0, 1)
         image = np.expand_dims(image, axis=0)
         return image, scale, pad_left, pad_top
