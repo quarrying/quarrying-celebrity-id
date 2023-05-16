@@ -41,9 +41,7 @@ class FaceFeatureExtractor(OnnxModel):
         
     @staticmethod
     def _preprocess(images):
-        images = images.astype(np.float32)
-        images -= 127.5
-        images /= 127.5
+        images = khandy.normalize_image_value(images, 127.5, 127.5)
         images = np.transpose(images, (0, 3, 1, 2))
         return images
         
