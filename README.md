@@ -9,7 +9,7 @@
 ```
 git clone https://github.com/quarrying/quarrying-celebrity-id.git
 cd quarrying-celebrity-id
-conda create -n celebid python=3.6 -y
+conda create -n celebid python=3.8 -y
 conda activate celebid
 pip install -r requirements.txt
 ```
